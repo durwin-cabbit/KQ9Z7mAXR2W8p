@@ -7165,28 +7165,12 @@ do
             return ts.is_other() and menu.elements["visuals"]["viewmodel"]
         end)
 
-        menu.refs["visuals"]["viewmodel"]:set_callback(function(self)
-            viewmodel.update()
-
-            menu.refs["visuals"]["viewmodel_fov"]:set_callback(
-                viewmodel.update,
-                self:get()
-            )
-            menu.refs["visuals"]["viewmodel_x"]:set_callback(
-                viewmodel.update,
-                self:get()
-            )
-            menu.refs["visuals"]["viewmodel_y"]:set_callback(
-                viewmodel.update,
-                self:get()
-            )
-            menu.refs["visuals"]["viewmodel_z"]:set_callback(
-                viewmodel.update,
-                self:get()
-            )
-
-            events.shutdown(viewmodel.reset, self:get())
-        end, true)
+        client.set_event_callback("shutdown", viewmodel.reset)
+        client.set_event_callback("paint", function()
+            if menu.elements["visuals"]["viewmodel"] then
+                viewmodel.update()
+            end
+        end)
     end
 
     visuals.scope = {}
