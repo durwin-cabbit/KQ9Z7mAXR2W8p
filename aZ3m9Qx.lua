@@ -1,5 +1,7 @@
 local panorama_api = panorama.open()
 
+local DEBUG = true
+
 -- #region : Libraries
 package.preload["helpers"] = function()
     local http = require("gamesense/http")
@@ -2208,77 +2210,6 @@ do
 end
 -- #endregion
 
--- #region : Exploit
-local exploit = {
-    diff = 0,
-    defensive = false,
-    shift = false,
-    active = false,
-}
-do
-    local last_commandnumber = 0
-    local tickbase_max = 0
-
-    events.run_command:set(function(cmd)
-        if not my.valid then
-            return
-        end
-
-        local tickbase = entity.get_prop(my.entity, "m_nTickBase") or 0
-        local client_latency = client.latency()
-
-        local shift = math.floor(
-            tickbase
-                - globals.tickcount()
-                - 3
-                - toticks(client_latency) * 0.5
-                + 0.5 * (client_latency * 10)
-        )
-        local wanted = -14 + (refs.other.doubletap_fakelag:get() - 1) + 3
-
-        exploit.shift = shift <= wanted
-
-        last_commandnumber = cmd.command_number
-    end)
-
-    events.predict_command:set(function(cmd)
-        if not my.valid then
-            return
-        end
-
-        if last_commandnumber ~= cmd.command_number then
-            return
-        end
-
-        exploit.active = refs.other.doubletap:get()
-                and refs.other.doubletap.hotkey:get()
-            or refs.other.onshot:get()
-                and refs.other.onshot.hotkey:get()
-
-        local tickbase = entity.get_prop(my.entity, "m_nTickBase") or 0
-
-        if tickbase_max ~= nil then
-            exploit.diff = tickbase - tickbase_max
-            exploit.defensive = exploit.diff < -3
-        end
-
-        tickbase_max = math.max(tickbase, tickbase_max or 0)
-
-        last_commandnumber = nil
-    end)
-
-    events.level_init:set(function()
-        exploit.diff = 0
-        exploit.defensive = false
-        exploit.shift = false
-        exploit.active = false
-
-        tickbase_max = 0
-        last_commandnumber = 0
-    end)
-end
--- #endregion
-
 -- #region : Menu
 local menu = {
     refs = {},
@@ -2372,6 +2303,78 @@ local groups = {
     other = pui.group("AA", "Other"),
 }
 -- #endregion
+
+-- #region : Exploit
+local exploit = {
+    diff = 0,
+    defensive = false,
+    shift = false,
+    active = false,
+}
+do
+    local last_commandnumber = 0
+    local tickbase_max = 0
+
+    events.run_command:set(function(cmd)
+        if not my.valid then
+            return
+        end
+
+        local tickbase = entity.get_prop(my.entity, "m_nTickBase") or 0
+        local client_latency = client.latency()
+
+        local shift = math.floor(
+            tickbase
+                - globals.tickcount()
+                - 3
+                - toticks(client_latency) * 0.5
+                + 0.5 * (client_latency * 10)
+        )
+        local wanted = -14 + (refs.other.doubletap_fakelag:get() - 1) + 3
+
+        exploit.shift = shift <= wanted
+
+        last_commandnumber = cmd.command_number
+    end)
+
+    events.predict_command:set(function(cmd)
+        if not my.valid then
+            return
+        end
+
+        if last_commandnumber ~= cmd.command_number then
+            return
+        end
+
+        exploit.active = refs.other.doubletap:get()
+                and refs.other.doubletap.hotkey:get()
+            or refs.other.onshot:get()
+                and refs.other.onshot.hotkey:get()
+
+        local tickbase = entity.get_prop(my.entity, "m_nTickBase") or 0
+
+        if tickbase_max ~= nil then
+            exploit.diff = tickbase - tickbase_max
+            exploit.defensive = exploit.diff <= -3
+        end
+
+        tickbase_max = math.max(tickbase, tickbase_max or 0)
+
+        last_commandnumber = nil
+    end)
+
+    events.level_init:set(function()
+        exploit.diff = 0
+        exploit.defensive = false
+        exploit.shift = false
+        exploit.active = false
+
+        tickbase_max = 0
+        last_commandnumber = 0
+    end)
+end
+-- #endregion
+
 
 --\a373737FF‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
 
@@ -2479,7 +2482,12 @@ do
     menu.button(groups.other)("Discord", function()
         panorama.open().SteamOverlayAPI.OpenURL("https://discord.gg/JJqxk2Des3")
     end)("main", "discord", function()
-            return menu.elements["main"]["tab_selector"] == "Home"
+            return menu.elements["main"]["tab_selector"] == 11
+        end
+    )
+
+    menu.checkbox(groups.other)("\vdebug info\r")("main", "debug", function()
+            return menu.elements["main"]["tab_selector"] == 11
         end
     )
 
@@ -3207,6 +3215,13 @@ local notify = (function()
 
     return NotificationSystem
 end)()
+
+
+events.predict_command:set(function()
+    if menu.elements["main"]["debug"] and DEBUG then 
+        print_raw("invalidating ticks: ".. exploit.diff .."")
+    end
+end)
 
 -- #region : antiaim
 local antiaim = {
