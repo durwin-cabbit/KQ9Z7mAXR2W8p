@@ -5620,8 +5620,291 @@ do
 
     end
 
+    local window_watermark_drag = drag.new("window_watermark_drag", 10, 40)
 
-    local watermark_drag = drag.new("watermark", 10, 40)
+    local window_spec_drag = drag.new("window_spec_drag", 10, 40)
+
+    indicators.windows = {}
+    do
+        local windows = indicators.windows
+
+        local sc = vector(client.screen_size())
+
+        local master = menu.elements["visuals"]["widgets"]
+
+        windows.watermark_handle = function()
+            local master = menu.elements["visuals"]["widgets"]
+
+            if not master["Watermark"] then return end
+
+            local r,g,b,a = menu.refs["visuals"]["accent_color"]:get()
+
+            local hour,minute,second = client.system_time()
+
+            local text = string.format("cabbtral mafia - %s - %02d:%02d:%02d", cabbtral.user, hour, minute, second)
+
+            local text_w, text_h = renderer.measure_text("d", text)
+
+            local x, y = window_watermark_drag:drag(text_w + 18, 20, 10, 40)
+
+
+            local padding = 12
+
+            local pad_x = 10
+            local pad_y = 6
+
+            local rect_w = text_w + pad_x * 2
+            local rect_h = text_h + pad_y * 2
+
+            local margin = 12
+            local rect_x = x
+            local rect_y = y
+
+            local grad_w = rect_w * 0.5
+            local grad_h = 1
+
+            local left_w  = math.floor(rect_w / 2)
+            local right_w = rect_w - left_w
+
+renderer.gradient(
+    rect_x,
+    rect_y,
+    left_w,
+    grad_h,
+    0, 0, 0, 150,
+    r, g, b, a,
+    true
+)
+
+renderer.gradient(
+    rect_x + left_w,
+    rect_y,
+    right_w,
+    grad_h,
+    r, g, b, a,
+    0, 0, 0, 150,
+    true
+)
+
+
+            renderer.rectangle(
+    rect_x,
+    rect_y + grad_h,
+    rect_w,
+    rect_h - 5,
+    0, 0, 0, 150
+)
+
+            renderer.text(
+    rect_x + pad_x  ,
+    rect_y + grad_h + pad_y-3.5,
+    255, 255, 255, 255,
+    "d",
+    0,
+    text
+)
+
+        end
+
+
+        local function has_spectators()
+            for _, data in pairs(m_active) do
+                if data.active then
+                    return true
+                end
+            end
+            return false
+        end
+
+
+        local get_spectating_players = function()
+			local me = entity.get_local_player()
+
+			local players, observing = { }, me
+		
+			for i = 1, globals.maxplayers() do
+				if entity.get_classname(i) == 'CCSPlayer' then
+					local m_iObserverMode = entity.get_prop(i, 'm_iObserverMode')
+					local m_hObserverTarget = entity.get_prop(i, 'm_hObserverTarget')
+		
+					if m_hObserverTarget ~= nil and m_hObserverTarget <= 64 and not entity.is_alive(i) and (m_iObserverMode == 4 or m_iObserverMode == 5) then
+						if players[m_hObserverTarget] == nil then
+							players[m_hObserverTarget] = { }
+						end
+		
+						if i == me then
+							observing = m_hObserverTarget
+						end
+		
+						table.insert(players[m_hObserverTarget], i)
+					end
+				end
+			end
+		
+			return players, observing
+		end
+
+
+        local function get_spectator_names()
+    local names = {}
+
+    for _, data in pairs(m_active) do
+        if data.active then
+            table.insert(names, data.name)
+        end
+    end
+
+    return names
+end
+
+local function update_spectators()
+    local spectators, observing = get_spectating_players()
+    local me = entity.get_local_player()
+
+    for i = 1, 64 do
+        unsorted[i] = { idx = i, active = false }
+    end
+
+    if spectators[me] ~= nil then
+        for _, spectator in pairs(spectators[me]) do
+            if spectator ~= me then
+                unsorted[spectator].active = true
+            end
+        end
+    end
+
+    for _, ref in pairs(unsorted) do
+        local id = ref.idx
+
+        if ref.active then
+            if not m_active[id] then
+                m_active[id] = { alpha = 0 }
+            end
+
+            m_active[id].active = true
+            m_active[id].name = entity.get_player_name(id)
+        elseif m_active[id] then
+            m_active[id] = nil
+        end
+    end
+end
+
+
+
+            unsorted   = {}
+            m_active   = {}
+            m_contents = {}
+
+
+windows.spec_handle = function()
+    local master = menu.elements["visuals"]["widgets"]
+
+    if not master["Spectators"] then return end
+    update_spectators()
+
+    local r,g,b,a = menu.refs["visuals"]["accent_color"]:get()
+
+    local spectators = get_spectator_names()
+    if #spectators == 0 then
+        spectators = { "" }
+    end
+
+    local padding_x, padding_y = 20, 8
+    local padding_xb, padding_yb = 22, 10
+    local line_height = 14
+    local title = "spectators"
+    local title_gap = 15
+
+    local x, y = window_spec_drag:drag(70, 65, 10, 40)
+
+    local title_w, title_h = renderer.measure_text("db", title)
+
+    local max_name_w = 0
+    for i = 1, #spectators do
+        local w = renderer.measure_text(nil, spectators[i])
+        max_name_w = math.max(max_name_w, w)
+    end
+
+    local content_w = math.max(title_w, max_name_w)
+    local box_w = content_w + padding_x * 2
+    local box_wb = content_w + padding_xb * 2
+
+    local box_h =
+        padding_y +
+        title_h +
+        title_gap +
+        (#spectators * line_height) +
+        padding_y
+    local box_hb =
+        padding_yb +
+        title_h +
+        title_gap +
+        (#spectators * line_height) +
+        padding_yb
+
+    renderer.rectangle(x-2, y-2, box_wb, box_hb, 35, 35, 35, 240)
+    renderer.rectangle(x, y, box_w, box_h, 10, 10, 10, 240)
+    renderer.gradient(x, y, box_w, title_gap * 1.5, 40, 40, 40, 240, 10, 10, 10, 240, false)
+
+    renderer.gradient(
+        x+box_w/2,
+        y + title_gap* 1.7,
+        box_w/2,
+        1,
+        r, g, b, a,
+        0, 0, 0, 220,
+        true
+    )
+    renderer.gradient(
+        x+box_w*0.01,
+        y + title_gap* 1.7,
+        box_w/2,
+        1,
+        0, 0, 0, 240,
+        r, g, b, a,
+        true
+    )
+
+
+    renderer.text(
+        x + box_w / 2 - title_w / 2,
+        y + padding_y - 2,
+        255, 255, 255, 255,
+        "db",
+        0,
+        title
+    )
+
+    local start_y = y + padding_y + title_h + title_gap
+
+    for i = 1, #spectators do
+        local name = spectators[i]
+        local name_w = renderer.measure_text(nil, name)
+
+        renderer.text(
+            x + box_w / 2 - name_w / 2,
+            start_y + (i - 1) * line_height,
+            255, 255, 255, 255,
+            "",
+            0,
+            name
+        )
+    end
+
+end
+
+
+
+
+
+        events.paint_ui:set(function()
+            windows.watermark_handle()
+            windows.spec_handle()
+        end)
+
+        menu.multiselect(groups.other)("Wigdets", { "Watermark", "Keybinds", "Spectators" })("visuals", "widgets", ts.is_indicators)
+    end
+
 
     local watermark_old_drag = drag.new("watermark_old", 10, 40)
 
@@ -5670,7 +5953,7 @@ watermark.handle = function()
         return 
     end
 
-    local xnew, ynew = watermark_drag:drag(100, 16, 10, 60)
+    local xnew, ynew = 10, pos.y/2
 
     renderer.text(
         xnew,
