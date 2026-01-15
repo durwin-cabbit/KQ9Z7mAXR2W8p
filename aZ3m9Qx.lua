@@ -2037,6 +2037,10 @@ local refs = {
             pui.reference("RAGE", "Aimbot", "Minimum damage override"),
         },
         silent_aim = ui.reference("RAGE", "Other", "Silent aim"),
+        fakeduck = pui.reference("RAGE", "Other", "Duck peek assist"),
+        autopeek = {
+            pui.reference("RAGE", "Other", "Quick peek assist")
+        },
         remove_scope = pui.reference(
             "VISUALS",
             "Effects",
@@ -3243,7 +3247,6 @@ do
         local manuals = antiaim.manuals
 
         manuals.yaw_offset = 0
-        manuals.last_tick = 0
         manuals.yaw_list = {
             ["left_bind"] = -90,
             ["right_bind"] = 90,
@@ -3274,18 +3277,26 @@ do
             "backwards_bind", ts.is_hotkeys)
 
         manuals.handle = function(new_config)
-            manuals.key_state = manuals.key_state or {}
-            for dir, yaw in pairs(manuals.yaw_list) do
-                    if
-                        menu.refs["antiaim"][dir]:get()
-                        and manuals.last_tick + 0.2 < globals.realtime()
-                    then
-                        manuals.yaw_offset = manuals.yaw_offset == yaw and 0 or yaw
-                        manuals.last_tick = globals.realtime()
-                    elseif manuals.last_tick > globals.realtime() then
-                        manuals.last_tick = globals.realtime()
-                    end
-            end
+manuals.prev_value = manuals.prev_value or {}
+
+manuals.yaw_offset = 0
+
+for dir, yaw in pairs(manuals.yaw_list) do
+    local ref = menu.refs["antiaim"][dir]
+    if not ref then goto continue end
+
+    local active = ref:get()
+
+    if active then
+        manuals.yaw_offset = yaw
+        break
+    end
+
+    ::continue::
+end
+
+
+
 
             new_config.yaw_base = menu.elements["antiaim"]["yaw_base"]
             new_config.fakelag = menu.elements["antiaim"]["fakelag_master"]
@@ -5624,6 +5635,8 @@ do
 
     local window_spec_drag = drag.new("window_spec_drag", 10, 40)
 
+    local window_key_drag = drag.new("window_key_drag", 10, 40)
+
     indicators.windows = {}
     do
         local windows = indicators.windows
@@ -5641,7 +5654,7 @@ do
 
             local hour,minute,second = client.system_time()
 
-            local text = string.format("cabbtral mafia - %s - %02d:%02d:%02d", cabbtral.user, hour, minute, second)
+            local text = string.format("cabbtral %s - %s - %02d:%02d:%02d", current_build, cabbtral.user, hour, minute, second)
 
             local text_w, text_h = renderer.measure_text("d", text)
 
@@ -5806,7 +5819,7 @@ windows.spec_handle = function()
 
     local spectators = get_spectator_names()
     if #spectators == 0 then
-        spectators = { "" }
+        return
     end
 
     local padding_x, padding_y = 20, 8
@@ -5815,7 +5828,7 @@ windows.spec_handle = function()
     local title = "spectators"
     local title_gap = 15
 
-    local x, y = window_spec_drag:drag(70, 65, 10, 40)
+    local x, y = window_spec_drag:drag(95, 60, 10, 40)
 
     local title_w, title_h = renderer.measure_text("db", title)
 
@@ -5895,11 +5908,249 @@ end
 
 
 
+windows.keybinds = {}
+windows.keybinds.items = {}
 
+windows.keybinds.anim_w = windows.keybinds.anim_w or 0
+windows.keybinds.anim_h = windows.keybinds.anim_h or 0
+
+function windows.keybinds:create(name, get)
+    table.insert(self.items, {
+        name = name,
+        get = get,
+        alpha = 0
+    })
+end
+
+
+windows.keybinds:create(
+    "Double tap",
+    function()
+        return refs.other.doubletap:get_hotkey()
+    end
+)
+
+windows.keybinds:create(
+    "On-shot antiaim",
+    function()
+        return refs.other.onshot:get() and refs.other.onshot.hotkey:get()
+    end
+)
+
+windows.keybinds:create(
+    "Force body aim",
+    function()
+        return refs.other.force_baim:get()
+    end
+)
+
+windows.keybinds:create(
+    "Force safepoint",
+    function()
+        return refs.other.force_sp:get()
+    end
+)
+
+windows.keybinds:create(
+    "Damage override",
+    function()
+        return refs.other.min_damage_override[1].hotkey:get()
+    end
+)
+
+windows.keybinds:create(
+    "Ping spike",
+    function()
+        return refs.other.ping_spike:get_hotkey()
+    end
+)
+
+windows.keybinds:create(
+    "Freestanding",
+    function()
+        return menu.refs["antiaim"]["freestanding_bind"]:get()
+    end
+)
+
+windows.keybinds:create(
+    "Yaw base left",
+    function()
+        return menu.refs["antiaim"]["left_bind"]:get()
+    end
+)
+
+windows.keybinds:create(
+    "Yaw base right",
+    function()
+        return menu.refs["antiaim"]["right_bind"]:get()
+    end
+)
+
+windows.keybinds:create(
+    "Yaw base forward",
+    function()
+        return menu.refs["antiaim"]["forward_bind"]:get()
+    end
+)
+
+windows.keybinds:create(
+    "Yaw base backward",
+    function()
+        return menu.refs["antiaim"]["backwards_bind"]:get()
+    end
+)
+
+windows.keybinds:create(
+    "Fakeduck",
+    function()
+        return refs.other.fakeduck:get()
+    end
+)
+
+windows.keybinds:create(
+    "Quick peek assist",
+    function()
+        return refs.other.autopeek[1]:get_hotkey()
+    end
+)
+
+windows.keybinds:create(
+    "Slow motion",
+    function()
+        return refs.other.slow_motion:get() and refs.other.slow_motion.hotkey:get()
+    end
+)
+
+windows.key_handle = function()
+    local master = menu.elements["visuals"]["widgets"]
+    if not master["Keybinds"] then
+        return
+    end
+
+    local r,g,b,a = menu.refs["visuals"]["accent_color"]:get()
+
+    local sc = vector(client.screen_size())
+    local x, y = window_key_drag:drag(50, 30, 10, 40)
+
+    local line_h = 14
+    local title_gap = 10
+    local padding_x = 16
+    local padding_y = 10
+
+    local total_h = line_h + title_gap
+    local max_w = renderer.measure_text("b", "keybinds")
+
+    for _, item in ipairs(windows.keybinds.items) do
+        local active = item.get()
+        item.alpha = anim.lerp(item.alpha, active and 255 or 0)
+
+        if item.alpha > 1 then
+            local text = item.name .. (active and " [on]" or " [off]")
+            local tw = renderer.measure_text("", text)
+
+            max_w = math.max(max_w, tw)
+            total_h = total_h + line_h * (item.alpha / 255)
+        end
+    end
+
+    local box_w = max_w + padding_x * 2
+    local box_h = total_h + padding_y * 2
+
+    windows.keybinds.anim_w = anim.lerp(windows.keybinds.anim_w, box_w)
+    windows.keybinds.anim_h = anim.lerp(windows.keybinds.anim_h, box_h)
+
+    local draw_w = windows.keybinds.anim_w
+    local draw_h = windows.keybinds.anim_h
+
+
+    local box_x = x - draw_w / 2
+    local box_y = y - line_h - padding_y - 4
+
+    renderer.rectangle(
+        box_x-3,
+        box_y-3,
+        draw_w+6,
+        draw_h+6,
+        35, 35, 35, 240
+    )
+
+    renderer.rectangle(
+        box_x,
+        box_y,
+        draw_w,
+        draw_h,
+        10, 10, 10, 240
+    )
+
+    renderer.gradient(box_x, box_y, draw_w, title_gap*2, 40, 40, 40, 240, 10, 10, 10, 240, false)
+
+
+
+    local title = "keybinds"
+    local title_w = renderer.measure_text("b", title)
+
+    renderer.text(
+        x - title_w / 2,
+        y - line_h*1.4,
+        255, 255, 255, 255,
+        "b",
+        0,
+        title
+    )
+
+local grad_y = y + 1
+local grad_w = draw_w * 0.5
+
+local grad_left_x  = box_x
+local grad_right_x = box_x + grad_w
+
+renderer.gradient(
+    grad_left_x,
+    grad_y,
+    grad_w,
+    1,
+    0, 0, 0, 240,
+    r, g, b, a,
+    true
+)
+
+renderer.gradient(
+    grad_right_x,
+    grad_y,
+    grad_w,
+    1,
+    r, g, b, a,
+    0, 0, 0, 240,
+    true
+)
+
+
+    y = y + title_gap
+
+    for _, item in ipairs(windows.keybinds.items) do
+        if item.alpha > 1 then
+            local active = item.get()
+            local text = item.name .. (active and " [on]" or " [off]")
+            local tw = renderer.measure_text("", text)
+
+            renderer.text(
+                x - tw / 2,
+                y,
+                255, 255, 255, item.alpha,
+                "",
+                0,
+                text
+            )
+
+            y = y + line_h * (item.alpha / 255)
+        end
+    end
+end
 
         events.paint_ui:set(function()
             windows.watermark_handle()
             windows.spec_handle()
+            windows.key_handle()
         end)
 
         menu.multiselect(groups.other)("Wigdets", { "Watermark", "Keybinds", "Spectators" })("visuals", "widgets", ts.is_indicators)
@@ -5941,6 +6192,10 @@ watermark.handle = function()
     local colortext = menu.elements["visuals"]["accent_color"]:to_hex()
 
     local switch = menu.elements["visuals"]["watermarkswitch"]
+
+    local master = menu.elements["visuals"]["widgets"]
+
+    if master["Watermark"] then return end
 
     local text = string.format(
         "\v\a%s   cabbtral %s \\ \aFFFFFFFF %s \r",
@@ -7903,6 +8158,66 @@ end)
         end
         events.paint_ui(menu.handle, true)
     end
+
+    miscellaneous.dzik_pickup = {}
+    do
+
+local TARGET_MODEL = "dzik_puszka_v3"
+local MAX_DIST = 150 
+local IN_USE = 32
+
+client.set_event_callback("setup_command", function(cmd)
+    local local_player = entity.get_local_player()
+    if not menu.elements["visuals"]["dzik"] then return end
+    if not menu.refs["visuals"]["hotkey"]:get() then return end
+    if not local_player or not entity.is_alive(local_player) then return end
+
+    local lx, ly, lz = entity.get_prop(local_player, "m_vecOrigin")
+    local ox, oy, oz = entity.get_prop(local_player, "m_vecViewOffset")
+    local view_pos = {lx + ox, ly + oy, lz + oz}
+
+    local best_target = nil
+    local closest_dist = MAX_DIST
+
+    local props = entity.get_all("CPhysicsProp")
+    
+    for i=1, #props do
+        local ent = props[i]
+        local model = entity.get_model_name(ent) or ""
+
+        if model:find(TARGET_MODEL) then
+            local ex, ey, ez = entity.get_prop(ent, "m_vecOrigin")
+
+            local dx, dy, dz = lx - ex, ly - ey, lz - ez
+            local dist = math.sqrt(dx*dx + dy*dy + dz*dz)
+
+            if dist < closest_dist then
+                closest_dist = dist
+                best_target = ent
+            end
+        end
+    end
+
+    if best_target then
+        local tx, ty, tz = entity.get_prop(best_target, "m_vecOrigin")
+
+        local dx, dy, dz = tx - view_pos[1], ty - view_pos[2], tz - view_pos[3]
+
+        local yaw = math.deg(math.atan2(dy, dx))
+        local len2d = math.sqrt(dx*dx + dy*dy)
+        local pitch = math.deg(math.atan2(-dz, len2d))
+
+        cmd.pitch = pitch
+        cmd.yaw = yaw
+        cmd.in_use = 1
+    end
+end)
+
+    --menu.checkbox(groups.antiaim)("Auto use \vdziks\r on \vuwujka\r")("visuals", "dzik", ts.is_misc)
+    --menu.hotkey(groups.antiaim)("Hotkey")("visuals", "hotkey", function() return ts.is_misc() and menu.elements["visuals"]["dzik"] end)
+
+    end
+
     miscellaneous.bullet_tracer = {}
     do
         local tracer = miscellaneous.bullet_tracer
