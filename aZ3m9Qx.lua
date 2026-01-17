@@ -7491,7 +7491,7 @@ logs.aim_hit = function(shot, e)
                         == "Modern"
                     then
 
-                        local max_width = 80
+                        local max_width = 80 * reduction / 100
 
                         local gradient_wl = max_width --* reduction / 100
 
