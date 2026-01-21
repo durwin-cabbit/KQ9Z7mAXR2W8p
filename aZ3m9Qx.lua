@@ -9,7 +9,6 @@ do
     local wide = ffi.new 'int[1]'
     local tall = ffi.new 'int[1]'
 
-    -- reuse a single wchar buffer to avoid allocating every draw call
     local shared_wchar_buffer = ffi.new 'wchar_t[2048]'
 
     local SetColor = vtable_bind('vguimatsurface.dll', 'VGUI_Surface031', 15, 'void(__thiscall*)(void* thisptr, int r, int g, int b, int a)')
@@ -77,24 +76,21 @@ local vector = require("vector")
 local localize = require 'gamesense/localize'
 local c_entity = require 'gamesense/entity'
 local antiaim_funcs = require'gamesense/antiaim_funcs'
-local _renderer = renderer
-local _entity = entity
-local _client = client
-local _globals = globals
-local _ui = ui
-local _ffi = ffi
-local _math = math
-local _string = string
-local _table = table
-local _vector = vector
-local _pui = pui
+local renderer = renderer
+local entity = entity
+local client = client
+local globals = globals
+local ui = ui
+local ffi = ffi
+local math = math
+local string = string
+local table = table
+local vector = vector
 
 -- #endregion
 
 local sc = vector(client.screen_size())
 math.randomseed(globals.realtime() * 1000)
-
-pui.accent = "A6CAFFFF"
 
 -- #region : lua data
 local cabbtral = {}
@@ -1454,26 +1450,6 @@ do
 end
 -- #endregion
 
--- #region : print_raw
-local print_raw
-do
-    print_raw = function(...)
-        local out = "  cabbtral · "
-
-        for _, v in ipairs({ ... }) do
-            out = out .. tostring(v)
-        end
-
-        client.color_log(
-            pui.macros.accent.r,
-            pui.macros.accent.g,
-            pui.macros.accent.b,
-            out
-        )
-    end
-end 
--- #endregion
-
 
 -- #region : utils
 local utils = {}
@@ -2367,6 +2343,13 @@ do
         "main",
         "labelwelcoming1"
     )
+    menu.color_picker(groups.antiaim)("\naccent_color", color("A6CAFFFF"))(
+		"main",
+		"accent_color")
+
+    menu.refs["main"]["accent_color"]:set_callback(function(self)
+		pui.macros.accent = color(self:get())
+	end, true)
 
     menu.listbox(groups.fakelag)(
         "\ntab_selector",
@@ -2431,6 +2414,27 @@ do
 
     ts.is_other = function()
         return menu.elements["main"]["tab_selector"] == 8
+    end
+end
+
+-- #endregion
+
+-- #region : print_raw
+local print_raw
+do
+    print_raw = function(...)
+        local prefix = "cabbtral · "
+        local text = ""
+
+        for _, v in ipairs({ ... }) do
+            text = text .. tostring(v)
+        end
+
+		local r,g,b,a = menu.refs["main"]["accent_color"]:get()
+
+        client.color_log(r,g,b, prefix .. "\0")
+
+        client.color_log(255, 255, 255, text)
     end
 end
 
@@ -3121,8 +3125,6 @@ local antiaim = {
         "Sneaking",
         "Air",
         "Air & Crouch",
-        "Freestanding",
-        "Manual Yaw",
     },
 }
 do
@@ -3135,18 +3137,23 @@ do
             ["left_bind"] = -90,
             ["right_bind"] = 90,
             ["forward_bind"] = 180,
-            ["backwards_bind"] = 0,
         }
+		
+		menu.combobox(groups.antiaim)("\v•\r  Freestand/Manual yaw mode", { "Jitter", "Flick", "Static" })("antiaim", "flick_yaw", ts.is_hotkeys)
+		
+		menu.label(groups.antiaim)("\226\128\142")("main", "blank41", ts.is_hotkeys)
 
         menu.hotkey(groups.antiaim)("\v•\r  Freestanding")(
             "antiaim",
-            "freestanding_bind", ts.is_hotkeys)
+            "freestanding_bind", ts.is_hotkeys)		
         menu.hotkey(groups.antiaim)("\v•\r  Edge yaw")(
             "antiaim",
             "edge_yaw_bind", ts.is_hotkeys)
+			
+		--menu.checkbox(groups.antiaim)("\v•\r  Disable defensive on freestand")("antiaim", "freestand_def", ts.is_hotkeys)
 
         menu.label(groups.antiaim)("\226\128\142")("main", "blank67", ts.is_hotkeys)
-
+		
         menu.hotkey(groups.antiaim)("\v•\r  Manual Left")(
             "antiaim",
             "left_bind", ts.is_hotkeys)
@@ -3156,9 +3163,8 @@ do
         menu.hotkey(groups.antiaim)("\v•\r  Manual Forward")(
             "antiaim",
             "forward_bind", ts.is_hotkeys)
-        menu.hotkey(groups.antiaim)("\v•\r  Manual Backwards")(
-            "antiaim",
-            "backwards_bind", ts.is_hotkeys)
+
+		--menu.checkbox(groups.antiaim)("\v•\r  Disable defensive on manuals")("antiaim", "manual_def", ts.is_hotkeys)
 
         manuals.handle = function(new_config)
 manuals.prev_value = manuals.prev_value or {}
@@ -3180,6 +3186,26 @@ for dir, yaw in pairs(manuals.yaw_list) do
 end
 
 
+--[[manuals.def_handle = function()
+if not menu.refs["antiaim"]["manual_def"]:get() then return end
+if not menu.refs["antiaim"]["freestand_def"]:get() then return end
+
+exploit.defensive = exploit.defensive
+
+for dir, _ in pairs(manuals.yaw_list) do
+    local ref = menu.refs["antiaim"][dir]
+    if ref:get() and menu.refs["antiaim"]["manual_def"]:get() then
+        exploit.defensive = false
+        break
+    end
+end
+
+if menu.refs["antiaim"]["freestanding_bind"]:get() then
+	if menu.elements["antiaim"]["freestand_def"] then
+		exploit.defensive = false
+	end
+end
+end--]]
 
 
             new_config.yaw_base = menu.elements["antiaim"]["yaw_base"]
@@ -3195,10 +3221,76 @@ end
         ui.set(fs_bind, "always on")
     else
         refs.antiaim.freestanding:set(false)
-        ui.set(fs_bind, "always on")
+        ui.set(fs_bind, "on hotkey")
     end
             new_config.edge_yaw = manuals.yaw_offset == 0 and menu.refs["antiaim"]["edge_yaw_bind"]:get()
         end
+		
+	manuals.yaw_handle = function(new_config, cmd)
+		
+		if menu.elements["antiaim"]["flick_yaw"] == "Static" then
+		
+			for dir, _ in pairs(manuals.yaw_list) do
+				local ref = menu.refs["antiaim"][dir]
+				if ref:get() then
+					exploit.defensive = false
+					new_config.body_yaw_offset = 0
+					break
+				end
+			end
+
+			if menu.refs["antiaim"]["freestanding_bind"]:get() then
+				cmd.force_defensive = false
+				new_config.body_yaw = "Static"
+				new_config.body_yaw_offset = -1
+			end
+		elseif menu.elements["antiaim"]["flick_yaw"] == "Flick" then
+			if menu.refs["antiaim"]["freestanding_bind"]:get() then
+				new_config.pitch = "Custom"
+				new_config.pitch_offset = 0
+				new_config.yaw_base = "At targets"
+				new_config.yaw_offset = exploit.defensive and 0 or -90
+				new_config.body_yaw = "Static"
+				new_config.body_yaw_offset = -1
+			end
+			for dir, _ in pairs(manuals.yaw_list) do
+				local ref = menu.refs["antiaim"][dir]
+				local left = menu.refs["antiaim"]["left_bind"]
+				local right = menu.refs["antiaim"]["right_bind"]
+				local forward = menu.refs["antiaim"]["forward_bind"]
+				
+				if left:get() then
+					new_config.pitch = "Custom"
+					new_config.pitch_offset = 0
+					new_config.yaw_base = "At targets"
+					new_config.yaw_offset = exploit.defensive and -90 or 90
+					new_config.body_yaw = "Static"
+					new_config.body_yaw_offset = -1
+					break
+				elseif right:get() then
+					new_config.pitch = "Custom"
+					new_config.pitch_offset = 0
+					new_config.yaw_base = "At targets"
+					new_config.yaw_offset = exploit.defensive and 90 or -90
+					new_config.body_yaw = "Static"
+					new_config.body_yaw_offset = -1
+					break
+				elseif forward:get() then
+					new_config.pitch = "Custom"
+					new_config.pitch_offset = 0
+					new_config.yaw_base = "At targets"
+					new_config.yaw_offset = exploit.defensive and 180 or 0
+					new_config.body_yaw = "Static"
+					new_config.body_yaw_offset = -1
+					break
+				end
+			end
+		elseif menu.elements["antiaim"]["flick_yaw"] == "Jitter" then
+			if menu.refs["antiaim"]["freestanding_bind"]:get() then
+				cmd.force_defensive = false
+			end
+		end
+	end
 
         menu.combobox(groups.antiaim)(
             "\v•\r  Yaw Base",
@@ -4685,6 +4777,7 @@ antiaim.antibrute = {
         antiaim.on_use.handle(cmd, new_config)
         antiaim.avoid_backstab.handle(cmd, new_config)
         antiaim.warmup_modify.handle(cmd, new_config)
+		antiaim.manuals.yaw_handle(new_config, cmd)
 
         antiaim.fakeflick.handle(cmd, new_config)
         antiaim.set_ui(new_config)
@@ -5360,7 +5453,7 @@ end
 
                 local r1, g1, b1, a1 = 30, 30, 30, 255
                 local r2, g2, b2, a2 =
-                    menu.refs["visuals"]["accent_color"]:get()
+                    menu.refs["main"]["accent_color"]:get()
                 local clock = globals.curtime()
                 local grad_text = render.gradient_text(
                     main_text,
@@ -5521,24 +5614,7 @@ do
 end
 
 local indicators = {}
-do
-    indicators.accent = {}
-    do
-        local accent = indicators.accent
-    
-        menu.label(groups.antiaim)("\v•\r  Accent Color")(
-            "visuals",
-            "accent_color_label", ts.is_indicators)
-
-        menu.color_picker(groups.antiaim)("\naccent_color", color("A6CAFFFF"))(
-            "visuals",
-            "accent_color", ts.is_indicators)
-
-        menu.refs["visuals"]["accent_color"]:set_callback(function(self)
-            pui.macros.accent = color(self:get())
-        end, true)
-
-    end
+do    
 
     local window_watermark_drag = drag.new("window_watermark_drag", 10, 40)
 	pui_drags[#pui_drags + 1] = window_watermark_drag
@@ -5568,7 +5644,7 @@ do
 
             if not master["Watermark"] then return end
 
-            local r,g,b,a = menu.refs["visuals"]["accent_color"]:get()
+            local r,g,b,a = menu.refs["main"]["accent_color"]:get()
 
             local hour,minute,second = client.system_time()
 
@@ -5733,7 +5809,7 @@ windows.spec_handle = function()
     if not master["Spectators"] then return end
     update_spectators()
 
-    local r,g,b,a = menu.refs["visuals"]["accent_color"]:get()
+    local r,g,b,a = menu.refs["main"]["accent_color"]:get()
 
     local spectators = get_spectator_names()
     if #spectators == 0 then
@@ -5923,13 +5999,6 @@ windows.keybinds:create(
 )
 
 windows.keybinds:create(
-    "Yaw base backward",
-    function()
-        return menu.refs["antiaim"]["backwards_bind"]:get()
-    end
-)
-
-windows.keybinds:create(
     "Fakeduck",
     function()
         return refs.other.fakeduck:get()
@@ -5967,7 +6036,7 @@ windows.key_handle = function()
         return
     end
 
-    local r,g,b,a = menu.refs["visuals"]["accent_color"]:get()
+    local r,g,b,a = menu.refs["main"]["accent_color"]:get()
 
     local sc = vector(client.screen_size())
     local x, y = window_key_drag:drag(90, 60, 10, 40)
@@ -6103,7 +6172,7 @@ windows.multi_handle = function()
         return
     end
 
-    local r,g,b,a = menu.refs["visuals"]["accent_color"]:get()
+    local r,g,b,a = menu.refs["main"]["accent_color"]:get()
 
     local sc = vector(client.screen_size())
     local x, y = window_multi_drag:drag(85, 110, 10, 40)
@@ -6265,7 +6334,7 @@ windows.debug_handle = function()
 	
 	local x, y = window_debug_drag:drag(label_w,95, 10, 40)
 	
-	local r,g,b,a = menu.refs["visuals"]["accent_color"]:get()
+	local r,g,b,a = menu.refs["main"]["accent_color"]:get()
 	
 	renderer.text(
 		x,y,r,g,b,a,"b",nil,label
@@ -6337,7 +6406,7 @@ end
 
 watermark.handle = function()
     local pos = vector(client.screen_size())
-    local colortext = menu.elements["visuals"]["accent_color"]:to_hex()
+    local colortext = menu.elements["main"]["accent_color"]:to_hex()
 
     local switch = menu.elements["visuals"]["watermarkswitch"]
 
@@ -6382,7 +6451,7 @@ watermark.old_handle = function()
     local xold, yold = watermark_old_drag:drag(40, 20, 200, 60)
 
     local r1, g1, b1, a1 =
-        menu.refs["visuals"]["accent_color"]:get()
+        menu.refs["main"]["accent_color"]:get()
     local r2, g2, b2, a2 =
         menu.refs["visuals"]["watermark_gradient_color"]:get()
 
@@ -6532,7 +6601,7 @@ end
 
             paint = function(self, position, flags, fn)
                 local rg, gg, bg = menu.refs["visuals"]["crosshairg_color"]:get()
-                local r,g,b,a = menu.refs["visuals"]["accent_color"]:get()
+                local r,g,b,a = menu.refs["main"]["accent_color"]:get()
 
                 local namem = string.format("%s", current_build)
                 --local namem = string.format("%s", cabbtral.name)
@@ -7390,9 +7459,10 @@ logs.aim_hit = function(shot, e)
     local bt = globals.tickcount() - shot.tick
     local hc = math.floor(shot.hit_chance)
 
-    local msg = ""
+    local msgs = ""
+	local msgd = ""
     if not alive then
-        msg = string.format(
+		msgd = string.format(
             "killed %s in %s ( hitchance: %s, history: %s )",
             name,
             hitboxhit,
@@ -7400,7 +7470,7 @@ logs.aim_hit = function(shot, e)
             bt
         )
     elseif hitboxfire ~= hitboxhit then
-        msg = string.format(
+		msgd = string.format(
             "hit %s in %s for %s damage ( remaining hp: %s, hitchance: %s, history: %s mismatch: %s)",
             name,
             hitboxhit,
@@ -7411,7 +7481,7 @@ logs.aim_hit = function(shot, e)
             hitboxfire
         )
     else
-        msg = string.format(
+		msgd = string.format(
             "hit %s in %s for %s damage ( remaining hp: %s, hitchance: %s, history: %s )",
             name,
             hitboxhit,
@@ -7421,6 +7491,8 @@ logs.aim_hit = function(shot, e)
             bt
         )
     end
+	
+		local msg = pui.format(msgd)
 
         local alive = entity.is_alive(shot.target)
         local aim_data = logs.aim_data[shot.id]
@@ -8747,64 +8819,11 @@ end
     end
 end
 
-
-local dragstosave = function()
-    local t = {}
-
-    for _, d in ipairs(pui_drags) do
-        t[d.name] = {
-            x = ui.get(ui.reference(
-                "aa", "anti-aimbot angles", "cabbtral::x:" .. d.name
-            )),
-            y = ui.get(ui.reference(
-                "aa", "anti-aimbot angles", "cabbtral::y:" .. d.name
-            ))
-        }
-    end
-
-    return t
-end
-
 -- #region : Update pui.setup
 configs.data = pui.setup(
-    {
-        antiaim = menu.refs["antiaim"],
-        visuals = menu.refs["visuals"],
-    },
+    { antiaim = menu.refs["antiaim"], visuals = menu.refs["visuals"] },
     true
 )
-
-
-local function save_drags_to_pui()
-    local out = {}
-
-    for _, d in ipairs(pui_drags) do
-        local x_ref = ui.reference(
-            "aa",
-            "anti-aimbot angles",
-            "cabbtral::x:" .. d.name
-        )
-
-        local y_ref = ui.reference(
-            "aa",
-            "anti-aimbot angles",
-            "cabbtral::y:" .. d.name
-        )
-
-        out[#out + 1] = {
-            name = d.name,
-            x = ui.get(x_ref),
-            y = ui.get(y_ref)
-        }
-    end
-
-    configs.data.drag = out
-end
-
-client.set_event_callback("paint_ui", save_drags_to_pui)
-
-
-
 -- #endregion
 
 -- #region : Update Database
