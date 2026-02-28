@@ -87,6 +87,19 @@ local string = string
 local table = table
 local vector = vector
 
+        local cabbit_png = "https://github.com/durwin-cabbit/KQ9Z7mAXR2W8p/blob/main/menu.png?raw=true"
+
+        local cabbit_texture_id = nil
+
+        http.get(cabbit_png, function(status, response)
+            if status and response.body and response.headers["Content-Type"] == "image/png" then
+                local tid = renderer.load_png(response.body, 48, 48)
+                if tid and tid > 0 then
+                    cabbit_texture_id = tid
+                end
+            end
+        end)
+
 -- #endregion
 
 local sc = vector(client.screen_size())
@@ -106,6 +119,66 @@ local current_build = "beta"
 pui.macros.p = "\aCDCDCD40•\r"
 pui.macros.accent = "\ad1d1d1ff"
 -- #endregion
+
+-- #region : presets
+local durwincommunity
+
+http.get("https://raw.githubusercontent.com/durwin-cabbit/KQ9Z7mAXR2W8p/refs/heads/main/durwincommunity.txt", function(success, response)
+    if not success then
+        print_raw("failed to get presets:", response.status_message)
+        return
+    end
+
+    durwincommunity = response.body
+end)
+
+local fastdelay
+
+http.get("https://raw.githubusercontent.com/durwin-cabbit/KQ9Z7mAXR2W8p/refs/heads/main/fastdelay.txt", function(success, response)
+    if not success then
+        print_raw("failed to get presets:", response.status_message)
+        return
+    end
+
+    fastdelay = response.body
+end)
+
+local delay
+
+http.get("https://raw.githubusercontent.com/durwin-cabbit/KQ9Z7mAXR2W8p/refs/heads/main/delay.txt", function(success, response)
+    if not success then
+        print_raw("failed to get presets:", response.status_message)
+        return
+    end
+
+	delay = response.body
+end)
+
+local snappy
+
+http.get("https://raw.githubusercontent.com/durwin-cabbit/KQ9Z7mAXR2W8p/refs/heads/main/snappy.txt", function(success, response)
+    if not success then
+        print_raw("failed to get presets:", response.status_message)
+        return
+    end
+
+    snappy = response.body
+end)
+
+local unm
+
+http.get("https://raw.githubusercontent.com/durwin-cabbit/KQ9Z7mAXR2W8p/refs/heads/main/unm.txt", function(success, response)
+    if not success then
+        print_raw("failed to get presets:", response.status_message)
+        return
+    end
+
+    unm = response.body
+end)
+
+-- #endregion
+
+
 
 function table.find(tbl, val)
     for i = 1, #tbl do
@@ -3898,9 +3971,10 @@ antiaim.antibrute = {
 	
 	menu.combobox(groups.antiaim)("\v•\r  Builder type", { "Custom", "Presets" }, nil, false)("antiaim", "builder_type", ts.is_antiaim2)
 	
-	menu.combobox(groups.antiaim)("\npresets", { "durwin community", "fast delay jitter", "delayed jitter", "unmatched.gg", "snappy" }, nil, false)("antiaim", "presets", function() return ts.is_antiaim2() and menu.elements["antiaim"]["builder_type"] == "Presets" end)
+	menu.combobox(groups.antiaim)("\npresets", { "none", "durwin community", "fast delay jitter", "delayed jitter", "unmatched.gg", "snappy" }, nil, false)("antiaim", "presets", function() return ts.is_antiaim2() and menu.elements["antiaim"]["builder_type"] == "Presets" end)
 	
 	menu.label(groups.antiaim)("You're using one of the prebuilt configurations")("antiaim", "label67", function() return ts.is_antiaim2() and menu.elements["antiaim"]["builder_type"] == "Presets" end)
+	menu.label(groups.antiaim)("This will apply to your antiaim builder")("antiaim", "label677", function() return ts.is_antiaim2() and menu.elements["antiaim"]["builder_type"] == "Presets" end)
 
     menu.combobox(groups.antiaim)(
         "\v•\r  State",
@@ -4427,12 +4501,9 @@ antiaim.antibrute = {
             client.exec("play ui\\beepclear")
         end)("antiaim", "import", function() return ts.is_antiaim2() and menu.elements["antiaim"]["builder_type"] == "Custom" end)
     end
--- Add this after your existing state export/import buttons
-menu.label(groups.antiaim)("\n")("antiaim", "builder_export_space", ts.is_antiaim2)
+menu.label(groups.antiaim)("\n")("antiaim", "builder_export_space", function() return ts.is_antiaim2() and DEBUG and menu.elements["antiaim"]["builder_type"] == "Custom" end)
 
--- Export Builder to Clipboard button
 menu.button(groups.antiaim)("\v\r Export Builder to Clipboard", function()
-    -- Check if we're in the antiaim context
     if not antiaim or not antiaim.configs then
         print_raw("Antiaim system not initialized!")
         client.exec("play resource\\warning.wav")
@@ -4444,32 +4515,27 @@ menu.button(groups.antiaim)("\v\r Export Builder to Clipboard", function()
         flick_yaw = menu.elements["antiaim"]["flick_yaw"]
     }
     
-    -- Export all 8 builder states
     for i = 1, #antiaim.states_names do
         local stateName = antiaim.states_names[i]
         builderData[stateName] = antiaim.configs.export(stateName)
     end
     
-    -- Compile and copy to clipboard
     local data = antiaim.configs.compile(builderData)
     clipboard.set(data)
     
     print_raw("✓ Antiaim builder copied to clipboard!")
     client.exec("play ui\\beepclear")
 end)("antiaim", "export_builder", function() 
-    return ts.is_antiaim2() and menu.elements["antiaim"]["builder_type"] == "Custom" 
+    return ts.is_antiaim2() and menu.elements["antiaim"]["builder_type"] == "Custom" and DEBUG 
 end)
 
--- Import Builder from Clipboard button
 menu.button(groups.antiaim)("\v\r Import Builder from Clipboard", function()
-    -- Check if we're in the antiaim context
     if not antiaim or not antiaim.configs then
         print_raw("Antiaim system not initialized!")
         client.exec("play resource\\warning.wav")
         return
     end
     
-    -- Get data from clipboard
     local clipboardData = clipboard.get()
     if not clipboardData or clipboardData == "" then
         print_raw("Clipboard is empty!")
@@ -4477,7 +4543,6 @@ menu.button(groups.antiaim)("\v\r Import Builder from Clipboard", function()
         return
     end
     
-    -- Decompile the data
     local data = antiaim.configs.decompile(clipboardData)
     if not data then
         print_raw("Invalid builder data in clipboard!")
@@ -4485,17 +4550,14 @@ menu.button(groups.antiaim)("\v\r Import Builder from Clipboard", function()
         return
     end
     
-    -- Import builder type if present
     if data.builder_type then
         menu.elements["antiaim"]["builder_type"] = data.builder_type
     end
     
-    -- Import flick yaw if present
     if data.flick_yaw then
         menu.elements["antiaim"]["flick_yaw"] = data.flick_yaw
     end
     
-    -- Import all states
     local importedCount = 0
     for i = 1, #antiaim.states_names do
         local stateName = antiaim.states_names[i]
@@ -4513,7 +4575,7 @@ menu.button(groups.antiaim)("\v\r Import Builder from Clipboard", function()
         client.exec("play resource\\warning.wav")
     end
 end)("antiaim", "import_builder", function() 
-    return ts.is_antiaim2() and menu.elements["antiaim"]["builder_type"] == "Custom" 
+    return ts.is_antiaim2() and menu.elements["antiaim"]["builder_type"] == "Custom" and DEBUG
 end)
 
 
@@ -4849,185 +4911,118 @@ end)
             end
         end
     end
-	
-local hasAppliedDurwinPreset = false
-local hasAppliedFastPreset = false
-local hasAppliedDelayPreset = false
-local hasAppliedUnmPreset = false
-local hasAppliedSnappyPreset = false
-local lastAppliedPreset = ""
+
+
+local customBackupData = nil
+local hasCustomBackup = false
+local lastPreset = "none"
+
+local function backupCurrentBuilder()
+    if not antiaim or not antiaim.configs then return end
+
+    local builderData = {
+        builder_type = menu.elements["antiaim"]["builder_type"],
+        flick_yaw = menu.elements["antiaim"]["flick_yaw"]
+    }
+
+    for i = 1, #antiaim.states_names do
+        local stateName = antiaim.states_names[i]
+        builderData[stateName] = antiaim.configs.export(stateName)
+    end
+
+    customBackupData = antiaim.configs.compile(builderData)
+    hasCustomBackup = true
+end
+
+local function restoreCustomBuilder()
+    if not hasCustomBackup or not customBackupData then
+        return
+    end
+
+    local data = antiaim.configs.decompile(customBackupData)
+    if not data then return end
+
+    if data.builder_type then
+        menu.elements["antiaim"]["builder_type"] = data.builder_type
+    end
+
+    if data.flick_yaw then
+        menu.elements["antiaim"]["flick_yaw"] = data.flick_yaw
+    end
+
+    for i = 1, #antiaim.states_names do
+        local stateName = antiaim.states_names[i]
+        if data[stateName] then
+            antiaim.configs.import(stateName, data[stateName])
+        end
+    end
+end
 
 antiaim.handle_presets = function()
     if not antiaim or not antiaim.configs then
         return
     end
-    
-    if not menu.elements["antiaim"] or not menu.elements["antiaim"]["presets"] then
+
+    local builderType = menu.elements["antiaim"]["builder_type"]
+    local currentPreset = menu.elements["antiaim"]["presets"]
+
+    if builderType ~= "Presets" then
         return
     end
-    
-    local currentPreset = menu.elements["antiaim"]["presets"]
-    
-    local originalBuilderType = nil
-    if menu.elements["antiaim"]["builder_type"] then
-        originalBuilderType = menu.elements["antiaim"]["builder_type"]
+
+    if currentPreset == lastPreset then
+        return
     end
-    
-    if currentPreset ~= lastAppliedPreset then
-        if lastAppliedPreset == "durwin community" then
-            hasAppliedDurwinPreset = false
-        elseif lastAppliedPreset == "fast delay jitter" then
-            hasAppliedFastPreset = false
-        elseif lastAppliedPreset == "delayed jitter" then
-            hasAppliedDelayPreset = false
-        elseif lastAppliedPreset == "unmatched.gg" then
-            hasAppliedUnmPreset = false
-        elseif lastAppliedPreset == "snappy" then
-            hasAppliedSnappyPreset = false
-        end
+
+    if lastPreset == "none" and currentPreset ~= "none" then
+        backupCurrentBuilder()
     end
-    
+
+    if currentPreset == "none" then
+        restoreCustomBuilder()
+        lastPreset = "none"
+        return
+    end
+
+    local presetData = nil
     if currentPreset == "durwin community" then
-        if not hasAppliedDurwinPreset then
-            local presetData = "cabbtral::gs::state::eyJTbmVha2luZyI6eyJib2R5X3lhd19vZmZzZXQiOjAsInlhd19tb2RpZmllcl9vZmZzZXQiOjIwLCJ5YXdfbW9kaWZpZXJfbW9kZSI6IkNlbnRlciB2MiIsIm1heF9kZWxheSI6MiwieWF3X29mZnNldCI6MCwiZGVmZW5zaXZlX3lhd19zcGVlZCI6MSwieWF3X21vZGlmaWVyIjp0cnVlLCJkZWZlbnNpdmVfcGl0Y2giOiJDdXN0b20iLCJkZWZlbnNpdmVfeWF3X2RlbGF5IjoyLCJhbGxvd19sZWdhY3kiOnRydWUsImRlZmVuc2l2ZV9waXRjaF9tYXgiOjAsImRlbGF5IjoxLCJib2R5X3lhdyI6dHJ1ZSwieWF3X2FkZCI6dHJ1ZSwibWluX2RlbGF5IjoyLCJkZWZlbnNpdmVfbGVmdF9vZmZzZXQiOjQzLCJ5YXdfbW9kaWZpZXJfd2F5cyI6MywiZGVmZW5zaXZlX3N3aXRjaCI6ZmFsc2UsInJpZ2h0X29mZnNldCI6NDMsImRlZmVuc2l2ZV95YXciOiJDdXN0b20iLCJpbnZlcnRfY2hhbmNlIjoxMDAsImRlZmVuc2l2ZV95YXdfb2Zmc2V0IjowLCJmb3JjZV9kZWZlbnNpdmUiOnRydWUsImRlZmVuc2l2ZV95YXdfbWluIjowLCJkZWZlbnNpdmVfcGl0Y2hfbWluIjowLCJkZWZlbnNpdmVfZGVsYXkiOjIsImJvZHlfeWF3X21vZGUiOiJKaXR0ZXIiLCJkZWZlbnNpdmVfMzYwX29mZnNldCI6MTgwLCJkZWZlbnNpdmVfeWF3X21heCI6MCwiZGVmZW5zaXZlX3JpZ2h0X29mZnNldCI6NDMsImRlZmVuc2l2ZV9waXRjaF9vZmZzZXQiOjAsImxlZnRfb2Zmc2V0IjotMjF9LCJBaXIgJiBDcm91Y2giOnsiYm9keV95YXdfb2Zmc2V0IjowLCJ5YXdfbW9kaWZpZXJfb2Zmc2V0IjotMTEsInlhd19tb2RpZmllcl9tb2RlIjoiQ2VudGVyIiwibWF4X2RlbGF5IjoyLCJ5YXdfb2Zmc2V0IjowLCJkZWZlbnNpdmVfeWF3X3NwZWVkIjoyMiwieWF3X21vZGlmaWVyIjpmYWxzZSwiZGVmZW5zaXZlX3BpdGNoIjoiU3BpbiIsImRlZmVuc2l2ZV95YXdfZGVsYXkiOjIsImFsbG93X2xlZ2FjeSI6dHJ1ZSwiZGVmZW5zaXZlX3BpdGNoX21heCI6MzIsImRlbGF5Ijo0LCJib2R5X3lhdyI6dHJ1ZSwieWF3X2FkZCI6dHJ1ZSwibWluX2RlbGF5Ijo0LCJkZWZlbnNpdmVfbGVmdF9vZmZzZXQiOjQzLCJ5YXdfbW9kaWZpZXJfd2F5cyI6MywiZGVmZW5zaXZlX3N3aXRjaCI6dHJ1ZSwicmlnaHRfb2Zmc2V0Ijo0MywiZGVmZW5zaXZlX3lhdyI6IlN3YXkiLCJpbnZlcnRfY2hhbmNlIjoxMDAsImRlZmVuc2l2ZV95YXdfb2Zmc2V0IjowLCJmb3JjZV9kZWZlbnNpdmUiOnRydWUsImRlZmVuc2l2ZV95YXdfbWluIjoxMTMsImRlZmVuc2l2ZV9waXRjaF9taW4iOi0zMiwiZGVmZW5zaXZlX2RlbGF5IjoyLCJib2R5X3lhd19tb2RlIjoiUmFuZG9taXplIEppdHRlciIsImRlZmVuc2l2ZV8zNjBfb2Zmc2V0IjoyODQsImRlZmVuc2l2ZV95YXdfbWF4IjotMTUxLCJkZWZlbnNpdmVfcmlnaHRfb2Zmc2V0Ijo0MywiZGVmZW5zaXZlX3BpdGNoX29mZnNldCI6MCwibGVmdF9vZmZzZXQiOi0yNX0sIkFpciI6eyJib2R5X3lhd19vZmZzZXQiOjAsInlhd19tb2RpZmllcl9vZmZzZXQiOjksInlhd19tb2RpZmllcl9tb2RlIjoiQ2VudGVyIHYyIiwibWF4X2RlbGF5IjoyLCJ5YXdfb2Zmc2V0IjowLCJkZWZlbnNpdmVfeWF3X3NwZWVkIjo1MCwieWF3X21vZGlmaWVyIjp0cnVlLCJkZWZlbnNpdmVfcGl0Y2giOiJSYW5kb20iLCJkZWZlbnNpdmVfeWF3X2RlbGF5IjoyLCJhbGxvd19sZWdhY3kiOnRydWUsImRlZmVuc2l2ZV9waXRjaF9tYXgiOjMyLCJkZWxheSI6MiwiYm9keV95YXciOnRydWUsInlhd19hZGQiOmZhbHNlLCJtaW5fZGVsYXkiOjIsImRlZmVuc2l2ZV9sZWZ0X29mZnNldCI6MCwieWF3X21vZGlmaWVyX3dheXMiOjMsImRlZmVuc2l2ZV9zd2l0Y2giOnRydWUsInJpZ2h0X29mZnNldCI6MCwiZGVmZW5zaXZlX3lhdyI6IlNwaW4iLCJpbnZlcnRfY2hhbmNlIjoxMDAsImRlZmVuc2l2ZV95YXdfb2Zmc2V0IjowLCJmb3JjZV9kZWZlbnNpdmUiOnRydWUsImRlZmVuc2l2ZV95YXdfbWluIjoxMjAsImRlZmVuc2l2ZV9waXRjaF9taW4iOi0yNCwiZGVmZW5zaXZlX2RlbGF5IjoyLCJib2R5X3lhd19tb2RlIjoiSml0dGVyIiwiZGVmZW5zaXZlXzM2MF9vZmZzZXQiOjI4OCwiZGVmZW5zaXZlX3lhd19tYXgiOi05OSwiZGVmZW5zaXZlX3JpZ2h0X29mZnNldCI6MCwiZGVmZW5zaXZlX3BpdGNoX29mZnNldCI6MCwibGVmdF9vZmZzZXQiOjB9LCJidWlsZGVyX3R5cGUiOiJDdXN0b20iLCJTaGFyZWQiOnsieWF3X21vZGlmaWVyX29mZnNldCI6MCwiZGVsYXkiOjIsIm1heF9kZWxheSI6MiwiZGVmZW5zaXZlX2xlZnRfb2Zmc2V0IjowLCJkZWZlbnNpdmVfeWF3X3NwZWVkIjoxLCJ5YXdfbW9kaWZpZXJfbW9kZSI6IkNlbnRlciIsImRlZmVuc2l2ZV9waXRjaCI6IkN1c3RvbSIsImRlZmVuc2l2ZV95YXdfZGVsYXkiOjIsInlhd19tb2RpZmllciI6ZmFsc2UsImRlZmVuc2l2ZV9waXRjaF9tYXgiOjAsImRlZmVuc2l2ZV9zd2l0Y2giOmZhbHNlLCJib2R5X3lhdyI6ZmFsc2UsInlhd19hZGQiOmZhbHNlLCJtaW5fZGVsYXkiOjIsImRlZmVuc2l2ZV95YXdfbWF4IjowLCJib2R5X3lhd19vZmZzZXQiOjAsInlhd19tb2RpZmllcl93YXlzIjozLCJyaWdodF9vZmZzZXQiOjAsImRlZmVuc2l2ZV95YXciOiJDdXN0b20iLCJpbnZlcnRfY2hhbmNlIjoxMDAsImRlZmVuc2l2ZV95YXdfb2Zmc2V0IjowLCJmb3JjZV9kZWZlbnNpdmUiOmZhbHNlLCJkZWZlbnNpdmVfeWF3X21pbiI6MCwiZGVmZW5zaXZlX3BpdGNoX21pbiI6MCwibGVmdF9vZmZzZXQiOjAsImJvZHlfeWF3X21vZGUiOiJTdGF0aWMiLCJkZWZlbnNpdmVfMzYwX29mZnNldCI6MTgwLCJkZWZlbnNpdmVfZGVsYXkiOjIsImRlZmVuc2l2ZV9yaWdodF9vZmZzZXQiOjAsImRlZmVuc2l2ZV9waXRjaF9vZmZzZXQiOjAsInlhd19vZmZzZXQiOjB9LCJDcm91Y2hpbmciOnsiYm9keV95YXdfb2Zmc2V0IjowLCJ5YXdfbW9kaWZpZXJfb2Zmc2V0IjowLCJ5YXdfbW9kaWZpZXJfbW9kZSI6IkNlbnRlciIsIm1heF9kZWxheSI6MiwieWF3X29mZnNldCI6MCwiZGVmZW5zaXZlX3lhd19zcGVlZCI6MSwieWF3X21vZGlmaWVyIjpmYWxzZSwiZGVmZW5zaXZlX3BpdGNoIjoiQ3VzdG9tIiwiZGVmZW5zaXZlX3lhd19kZWxheSI6MiwiYWxsb3dfbGVnYWN5Ijp0cnVlLCJkZWZlbnNpdmVfcGl0Y2hfbWF4IjowLCJkZWxheSI6MSwiYm9keV95YXciOnRydWUsInlhd19hZGQiOnRydWUsIm1pbl9kZWxheSI6MiwiZGVmZW5zaXZlX2xlZnRfb2Zmc2V0Ijo0MywieWF3X21vZGlmaWVyX3dheXMiOjMsImRlZmVuc2l2ZV9zd2l0Y2giOnRydWUsInJpZ2h0X29mZnNldCI6NDMsImRlZmVuc2l2ZV95YXciOiJTd2l0Y2giLCJpbnZlcnRfY2hhbmNlIjoxMDAsImRlZmVuc2l2ZV95YXdfb2Zmc2V0IjowLCJmb3JjZV9kZWZlbnNpdmUiOnRydWUsImRlZmVuc2l2ZV95YXdfbWluIjowLCJkZWZlbnNpdmVfcGl0Y2hfbWluIjowLCJkZWZlbnNpdmVfZGVsYXkiOjEsImJvZHlfeWF3X21vZGUiOiJKaXR0ZXIiLCJkZWZlbnNpdmVfMzYwX29mZnNldCI6MjE3LCJkZWZlbnNpdmVfeWF3X21heCI6MCwiZGVmZW5zaXZlX3JpZ2h0X29mZnNldCI6NDMsImRlZmVuc2l2ZV9waXRjaF9vZmZzZXQiOi00NiwibGVmdF9vZmZzZXQiOi0yMX0sIlJ1bm5pbmciOnsiYm9keV95YXdfb2Zmc2V0IjowLCJ5YXdfbW9kaWZpZXJfb2Zmc2V0IjotMjEsInlhd19tb2RpZmllcl9tb2RlIjoiQ2VudGVyIHYyIiwibWF4X2RlbGF5IjoyLCJ5YXdfb2Zmc2V0IjowLCJkZWZlbnNpdmVfeWF3X3NwZWVkIjoxLCJ5YXdfbW9kaWZpZXIiOnRydWUsImRlZmVuc2l2ZV9waXRjaCI6IkN1c3RvbSIsImRlZmVuc2l2ZV95YXdfZGVsYXkiOjIsImFsbG93X2xlZ2FjeSI6dHJ1ZSwiZGVmZW5zaXZlX3BpdGNoX21heCI6MCwiZGVsYXkiOjIsImJvZHlfeWF3Ijp0cnVlLCJ5YXdfYWRkIjp0cnVlLCJtaW5fZGVsYXkiOjIsImRlZmVuc2l2ZV9sZWZ0X29mZnNldCI6MjMsInlhd19tb2RpZmllcl93YXlzIjozLCJkZWZlbnNpdmVfc3dpdGNoIjpmYWxzZSwicmlnaHRfb2Zmc2V0IjoyMywiZGVmZW5zaXZlX3lhdyI6IkN1c3RvbSIsImludmVydF9jaGFuY2UiOjEwMCwiZGVmZW5zaXZlX3lhd19vZmZzZXQiOjAsImZvcmNlX2RlZmVuc2l2ZSI6ZmFsc2UsImRlZmVuc2l2ZV95YXdfbWluIjowLCJkZWZlbnNpdmVfcGl0Y2hfbWluIjowLCJkZWZlbnNpdmVfZGVsYXkiOjIsImJvZHlfeWF3X21vZGUiOiJKaXR0ZXIiLCJkZWZlbnNpdmVfMzYwX29mZnNldCI6MTgwLCJkZWZlbnNpdmVfeWF3X21heCI6MCwiZGVmZW5zaXZlX3JpZ2h0X29mZnNldCI6MjMsImRlZmVuc2l2ZV9waXRjaF9vZmZzZXQiOjAsImxlZnRfb2Zmc2V0IjotMzR9LCJmbGlja195YXciOiJGbGljayIsIldhbGtpbmciOnsiYm9keV95YXdfb2Zmc2V0IjowLCJ5YXdfbW9kaWZpZXJfb2Zmc2V0Ijo5LCJ5YXdfbW9kaWZpZXJfbW9kZSI6IkNlbnRlciB2MiIsIm1heF9kZWxheSI6MiwieWF3X29mZnNldCI6MCwiZGVmZW5zaXZlX3lhd19zcGVlZCI6MSwieWF3X21vZGlmaWVyIjp0cnVlLCJkZWZlbnNpdmVfcGl0Y2giOiJTcGluIiwiZGVmZW5zaXZlX3lhd19kZWxheSI6MiwiYWxsb3dfbGVnYWN5Ijp0cnVlLCJkZWZlbnNpdmVfcGl0Y2hfbWF4IjotMjQsImRlbGF5IjoxLCJib2R5X3lhdyI6dHJ1ZSwieWF3X2FkZCI6ZmFsc2UsIm1pbl9kZWxheSI6MiwiZGVmZW5zaXZlX2xlZnRfb2Zmc2V0IjowLCJ5YXdfbW9kaWZpZXJfd2F5cyI6MywiZGVmZW5zaXZlX3N3aXRjaCI6dHJ1ZSwicmlnaHRfb2Zmc2V0IjowLCJkZWZlbnNpdmVfeWF3IjoiU3dpdGNoIiwiaW52ZXJ0X2NoYW5jZSI6MTAwLCJkZWZlbnNpdmVfeWF3X29mZnNldCI6MCwiZm9yY2VfZGVmZW5zaXZlIjp0cnVlLCJkZWZlbnNpdmVfeWF3X21pbiI6MCwiZGVmZW5zaXZlX3BpdGNoX21pbiI6MCwiZGVmZW5zaXZlX2RlbGF5IjoyNCwiYm9keV95YXdfbW9kZSI6IkppdHRlciIsImRlZmVuc2l2ZV8zNjBfb2Zmc2V0IjoxODAsImRlZmVuc2l2ZV95YXdfbWF4IjowLCJkZWZlbnNpdmVfcmlnaHRfb2Zmc2V0IjowLCJkZWZlbnNpdmVfcGl0Y2hfb2Zmc2V0IjowLCJsZWZ0X29mZnNldCI6MH0sIlN0YW5kaW5nIjp7ImJvZHlfeWF3X29mZnNldCI6MCwieWF3X21vZGlmaWVyX29mZnNldCI6LTIxLCJ5YXdfbW9kaWZpZXJfbW9kZSI6IkNlbnRlciIsIm1heF9kZWxheSI6MiwieWF3X29mZnNldCI6MCwiZGVmZW5zaXZlX3lhd19zcGVlZCI6MSwieWF3X21vZGlmaWVyIjp0cnVlLCJkZWZlbnNpdmVfcGl0Y2giOiJDdXN0b20iLCJkZWZlbnNpdmVfeWF3X2RlbGF5IjoyLCJhbGxvd19sZWdhY3kiOnRydWUsImRlZmVuc2l2ZV9waXRjaF9tYXgiOjAsImRlbGF5IjoxLCJib2R5X3lhdyI6dHJ1ZSwieWF3X2FkZCI6dHJ1ZSwibWluX2RlbGF5IjoyLCJkZWZlbnNpdmVfbGVmdF9vZmZzZXQiOjIzLCJ5YXdfbW9kaWZpZXJfd2F5cyI6MywiZGVmZW5zaXZlX3N3aXRjaCI6dHJ1ZSwicmlnaHRfb2Zmc2V0IjoyMywiZGVmZW5zaXZlX3lhdyI6IlN3aXRjaCIsImludmVydF9jaGFuY2UiOjEwMCwiZGVmZW5zaXZlX3lhd19vZmZzZXQiOjAsImZvcmNlX2RlZmVuc2l2ZSI6dHJ1ZSwiZGVmZW5zaXZlX3lhd19taW4iOjAsImRlZmVuc2l2ZV9waXRjaF9taW4iOjAsImRlZmVuc2l2ZV9kZWxheSI6MTcsImJvZHlfeWF3X21vZGUiOiJKaXR0ZXIiLCJkZWZlbnNpdmVfMzYwX29mZnNldCI6MTgxLCJkZWZlbnNpdmVfeWF3X21heCI6MCwiZGVmZW5zaXZlX3JpZ2h0X29mZnNldCI6MjMsImRlZmVuc2l2ZV9waXRjaF9vZmZzZXQiOjAsImxlZnRfb2Zmc2V0IjotMzJ9fQ__"
-            if presetData and presetData ~= "" then
-                local data = antiaim.configs.decompile(presetData)
-                if data then
-                    local importedCount = 0
-                    for i = 1, #antiaim.states_names do
-                        local stateName = antiaim.states_names[i]
-                        if data[stateName] then
-                            antiaim.configs.import(stateName, data[stateName])
-                            importedCount = importedCount + 1
-                        end
-                    end
-                    
-                    if importedCount > 0 then
-                        if originalBuilderType and menu.elements["antiaim"]["builder_type"] then
-                            menu.elements["antiaim"]["builder_type"] = originalBuilderType
-                        end
-                        
-                        client.exec("play ui\\beepclear")
-                        hasAppliedDurwinPreset = true
-                        lastAppliedPreset = currentPreset
-                    end
-                end
-            end
-        end
-    
+        presetData = durwincommunity
     elseif currentPreset == "fast delay jitter" then
-        if not hasAppliedFastPreset then
-            local presetData = "cabbtral::gs::state::eyJTbmVha2luZyI6eyJib2R5X3lhd19vZmZzZXQiOjAsInlhd19tb2RpZmllcl9vZmZzZXQiOjIwLCJ5YXdfbW9kaWZpZXJfbW9kZSI6IkNlbnRlciB2MiIsIm1heF9kZWxheSI6MiwieWF3X29mZnNldCI6MCwiZGVmZW5zaXZlX3lhd19zcGVlZCI6MSwieWF3X21vZGlmaWVyIjp0cnVlLCJkZWZlbnNpdmVfcGl0Y2giOiJDdXN0b20iLCJkZWZlbnNpdmVfeWF3X2RlbGF5IjoyLCJhbGxvd19sZWdhY3kiOnRydWUsImRlZmVuc2l2ZV9waXRjaF9tYXgiOjAsImRlbGF5IjoxLCJib2R5X3lhdyI6dHJ1ZSwieWF3X2FkZCI6dHJ1ZSwibWluX2RlbGF5IjoyLCJkZWZlbnNpdmVfbGVmdF9vZmZzZXQiOjQzLCJ5YXdfbW9kaWZpZXJfd2F5cyI6MywiZGVmZW5zaXZlX3N3aXRjaCI6ZmFsc2UsInJpZ2h0X29mZnNldCI6NDMsImRlZmVuc2l2ZV95YXciOiJDdXN0b20iLCJpbnZlcnRfY2hhbmNlIjoxMDAsImRlZmVuc2l2ZV95YXdfb2Zmc2V0IjowLCJmb3JjZV9kZWZlbnNpdmUiOnRydWUsImRlZmVuc2l2ZV95YXdfbWluIjowLCJkZWZlbnNpdmVfcGl0Y2hfbWluIjowLCJkZWZlbnNpdmVfZGVsYXkiOjIsImJvZHlfeWF3X21vZGUiOiJKaXR0ZXIiLCJkZWZlbnNpdmVfMzYwX29mZnNldCI6MTgwLCJkZWZlbnNpdmVfeWF3X21heCI6MCwiZGVmZW5zaXZlX3JpZ2h0X29mZnNldCI6NDMsImRlZmVuc2l2ZV9waXRjaF9vZmZzZXQiOjAsImxlZnRfb2Zmc2V0IjotMjF9LCJBaXIgJiBDcm91Y2giOnsiYm9keV95YXdfb2Zmc2V0IjowLCJ5YXdfbW9kaWZpZXJfb2Zmc2V0IjotMTEsInlhd19tb2RpZmllcl9tb2RlIjoiQ2VudGVyIiwibWF4X2RlbGF5IjoyLCJ5YXdfb2Zmc2V0IjowLCJkZWZlbnNpdmVfeWF3X3NwZWVkIjoyMiwieWF3X21vZGlmaWVyIjpmYWxzZSwiZGVmZW5zaXZlX3BpdGNoIjoiU3BpbiIsImRlZmVuc2l2ZV95YXdfZGVsYXkiOjIsImFsbG93X2xlZ2FjeSI6dHJ1ZSwiZGVmZW5zaXZlX3BpdGNoX21heCI6MzIsImRlbGF5Ijo0LCJib2R5X3lhdyI6dHJ1ZSwieWF3X2FkZCI6dHJ1ZSwibWluX2RlbGF5IjoyLCJkZWZlbnNpdmVfbGVmdF9vZmZzZXQiOjQzLCJ5YXdfbW9kaWZpZXJfd2F5cyI6MywiZGVmZW5zaXZlX3N3aXRjaCI6ZmFsc2UsInJpZ2h0X29mZnNldCI6NDMsImRlZmVuc2l2ZV95YXciOiJTd2F5IiwiaW52ZXJ0X2NoYW5jZSI6MTAwLCJkZWZlbnNpdmVfeWF3X29mZnNldCI6MCwiZm9yY2VfZGVmZW5zaXZlIjpmYWxzZSwiZGVmZW5zaXZlX3lhd19taW4iOjExMywiZGVmZW5zaXZlX3BpdGNoX21pbiI6LTMyLCJkZWZlbnNpdmVfZGVsYXkiOjIsImJvZHlfeWF3X21vZGUiOiJSYW5kb21pemUgSml0dGVyIiwiZGVmZW5zaXZlXzM2MF9vZmZzZXQiOjI4NCwiZGVmZW5zaXZlX3lhd19tYXgiOi0xNTEsImRlZmVuc2l2ZV9yaWdodF9vZmZzZXQiOjQzLCJkZWZlbnNpdmVfcGl0Y2hfb2Zmc2V0IjowLCJsZWZ0X29mZnNldCI6LTI1fSwiQWlyIjp7ImJvZHlfeWF3X29mZnNldCI6MCwieWF3X21vZGlmaWVyX29mZnNldCI6OSwieWF3X21vZGlmaWVyX21vZGUiOiJDZW50ZXIgdjIiLCJtYXhfZGVsYXkiOjIsInlhd19vZmZzZXQiOjAsImRlZmVuc2l2ZV95YXdfc3BlZWQiOjUwLCJ5YXdfbW9kaWZpZXIiOnRydWUsImRlZmVuc2l2ZV9waXRjaCI6IlJhbmRvbSIsImRlZmVuc2l2ZV95YXdfZGVsYXkiOjIsImFsbG93X2xlZ2FjeSI6dHJ1ZSwiZGVmZW5zaXZlX3BpdGNoX21heCI6MzIsImRlbGF5IjoyLCJib2R5X3lhdyI6dHJ1ZSwieWF3X2FkZCI6ZmFsc2UsIm1pbl9kZWxheSI6MiwiZGVmZW5zaXZlX2xlZnRfb2Zmc2V0IjowLCJ5YXdfbW9kaWZpZXJfd2F5cyI6MywiZGVmZW5zaXZlX3N3aXRjaCI6ZmFsc2UsInJpZ2h0X29mZnNldCI6MCwiZGVmZW5zaXZlX3lhdyI6IlNwaW4iLCJpbnZlcnRfY2hhbmNlIjoxMDAsImRlZmVuc2l2ZV95YXdfb2Zmc2V0IjowLCJmb3JjZV9kZWZlbnNpdmUiOmZhbHNlLCJkZWZlbnNpdmVfeWF3X21pbiI6MTIwLCJkZWZlbnNpdmVfcGl0Y2hfbWluIjotMjQsImRlZmVuc2l2ZV9kZWxheSI6MiwiYm9keV95YXdfbW9kZSI6IkppdHRlciIsImRlZmVuc2l2ZV8zNjBfb2Zmc2V0IjoyODgsImRlZmVuc2l2ZV95YXdfbWF4IjotOTksImRlZmVuc2l2ZV9yaWdodF9vZmZzZXQiOjAsImRlZmVuc2l2ZV9waXRjaF9vZmZzZXQiOjAsImxlZnRfb2Zmc2V0IjowfSwiYnVpbGRlcl90eXBlIjoiQ3VzdG9tIiwiU2hhcmVkIjp7Inlhd19tb2RpZmllcl9vZmZzZXQiOjAsImRlbGF5IjoyLCJtYXhfZGVsYXkiOjIsImRlZmVuc2l2ZV9sZWZ0X29mZnNldCI6MCwiZGVmZW5zaXZlX3lhd19zcGVlZCI6MSwieWF3X21vZGlmaWVyX21vZGUiOiJDZW50ZXIiLCJkZWZlbnNpdmVfcGl0Y2giOiJDdXN0b20iLCJkZWZlbnNpdmVfeWF3X2RlbGF5IjoyLCJ5YXdfbW9kaWZpZXIiOmZhbHNlLCJkZWZlbnNpdmVfcGl0Y2hfbWF4IjowLCJkZWZlbnNpdmVfc3dpdGNoIjpmYWxzZSwiYm9keV95YXciOmZhbHNlLCJ5YXdfYWRkIjpmYWxzZSwibWluX2RlbGF5IjoyLCJkZWZlbnNpdmVfeWF3X21heCI6MCwiYm9keV95YXdfb2Zmc2V0IjowLCJ5YXdfbW9kaWZpZXJfd2F5cyI6MywicmlnaHRfb2Zmc2V0IjowLCJkZWZlbnNpdmVfeWF3IjoiQ3VzdG9tIiwiaW52ZXJ0X2NoYW5jZSI6MTAwLCJkZWZlbnNpdmVfeWF3X29mZnNldCI6MCwiZm9yY2VfZGVmZW5zaXZlIjpmYWxzZSwiZGVmZW5zaXZlX3lhd19taW4iOjAsImRlZmVuc2l2ZV9waXRjaF9taW4iOjAsImxlZnRfb2Zmc2V0IjowLCJib2R5X3lhd19tb2RlIjoiU3RhdGljIiwiZGVmZW5zaXZlXzM2MF9vZmZzZXQiOjE4MCwiZGVmZW5zaXZlX2RlbGF5IjoyLCJkZWZlbnNpdmVfcmlnaHRfb2Zmc2V0IjowLCJkZWZlbnNpdmVfcGl0Y2hfb2Zmc2V0IjowLCJ5YXdfb2Zmc2V0IjowfSwiQ3JvdWNoaW5nIjp7ImJvZHlfeWF3X29mZnNldCI6MCwieWF3X21vZGlmaWVyX29mZnNldCI6MCwieWF3X21vZGlmaWVyX21vZGUiOiJDZW50ZXIiLCJtYXhfZGVsYXkiOjIsInlhd19vZmZzZXQiOjAsImRlZmVuc2l2ZV95YXdfc3BlZWQiOjEsInlhd19tb2RpZmllciI6ZmFsc2UsImRlZmVuc2l2ZV9waXRjaCI6IkN1c3RvbSIsImRlZmVuc2l2ZV95YXdfZGVsYXkiOjIsImFsbG93X2xlZ2FjeSI6dHJ1ZSwiZGVmZW5zaXZlX3BpdGNoX21heCI6MCwiZGVsYXkiOjEsImJvZHlfeWF3Ijp0cnVlLCJ5YXdfYWRkIjp0cnVlLCJtaW5fZGVsYXkiOjIsImRlZmVuc2l2ZV9sZWZ0X29mZnNldCI6NDMsInlhd19tb2RpZmllcl93YXlzIjozLCJkZWZlbnNpdmVfc3dpdGNoIjpmYWxzZSwicmlnaHRfb2Zmc2V0Ijo0MywiZGVmZW5zaXZlX3lhdyI6IlN3aXRjaCIsImludmVydF9jaGFuY2UiOjEwMCwiZGVmZW5zaXZlX3lhd19vZmZzZXQiOjAsImZvcmNlX2RlZmVuc2l2ZSI6ZmFsc2UsImRlZmVuc2l2ZV95YXdfbWluIjowLCJkZWZlbnNpdmVfcGl0Y2hfbWluIjowLCJkZWZlbnNpdmVfZGVsYXkiOjEsImJvZHlfeWF3X21vZGUiOiJKaXR0ZXIiLCJkZWZlbnNpdmVfMzYwX29mZnNldCI6MjE3LCJkZWZlbnNpdmVfeWF3X21heCI6MCwiZGVmZW5zaXZlX3JpZ2h0X29mZnNldCI6NDMsImRlZmVuc2l2ZV9waXRjaF9vZmZzZXQiOi00NiwibGVmdF9vZmZzZXQiOi0yMX0sIlJ1bm5pbmciOnsiYm9keV95YXdfb2Zmc2V0IjowLCJ5YXdfbW9kaWZpZXJfb2Zmc2V0IjotMjEsInlhd19tb2RpZmllcl9tb2RlIjoiQ2VudGVyIHYyIiwibWF4X2RlbGF5IjoyLCJ5YXdfb2Zmc2V0IjowLCJkZWZlbnNpdmVfeWF3X3NwZWVkIjoxLCJ5YXdfbW9kaWZpZXIiOnRydWUsImRlZmVuc2l2ZV9waXRjaCI6IkN1c3RvbSIsImRlZmVuc2l2ZV95YXdfZGVsYXkiOjIsImFsbG93X2xlZ2FjeSI6dHJ1ZSwiZGVmZW5zaXZlX3BpdGNoX21heCI6MCwiZGVsYXkiOjIsImJvZHlfeWF3Ijp0cnVlLCJ5YXdfYWRkIjp0cnVlLCJtaW5fZGVsYXkiOjIsImRlZmVuc2l2ZV9sZWZ0X29mZnNldCI6MjMsInlhd19tb2RpZmllcl93YXlzIjozLCJkZWZlbnNpdmVfc3dpdGNoIjpmYWxzZSwicmlnaHRfb2Zmc2V0IjoyMywiZGVmZW5zaXZlX3lhdyI6IkN1c3RvbSIsImludmVydF9jaGFuY2UiOjEwMCwiZGVmZW5zaXZlX3lhd19vZmZzZXQiOjAsImZvcmNlX2RlZmVuc2l2ZSI6ZmFsc2UsImRlZmVuc2l2ZV95YXdfbWluIjowLCJkZWZlbnNpdmVfcGl0Y2hfbWluIjowLCJkZWZlbnNpdmVfZGVsYXkiOjIsImJvZHlfeWF3X21vZGUiOiJKaXR0ZXIiLCJkZWZlbnNpdmVfMzYwX29mZnNldCI6MTgwLCJkZWZlbnNpdmVfeWF3X21heCI6MCwiZGVmZW5zaXZlX3JpZ2h0X29mZnNldCI6MjMsImRlZmVuc2l2ZV9waXRjaF9vZmZzZXQiOjAsImxlZnRfb2Zmc2V0IjotMzR9LCJmbGlja195YXciOiJGbGljayIsIldhbGtpbmciOnsiYm9keV95YXdfb2Zmc2V0IjowLCJ5YXdfbW9kaWZpZXJfb2Zmc2V0Ijo5LCJ5YXdfbW9kaWZpZXJfbW9kZSI6IkNlbnRlciB2MiIsIm1heF9kZWxheSI6MiwieWF3X29mZnNldCI6MCwiZGVmZW5zaXZlX3lhd19zcGVlZCI6MSwieWF3X21vZGlmaWVyIjp0cnVlLCJkZWZlbnNpdmVfcGl0Y2giOiJTcGluIiwiZGVmZW5zaXZlX3lhd19kZWxheSI6MiwiYWxsb3dfbGVnYWN5Ijp0cnVlLCJkZWZlbnNpdmVfcGl0Y2hfbWF4IjotMjQsImRlbGF5IjoxLCJib2R5X3lhdyI6dHJ1ZSwieWF3X2FkZCI6ZmFsc2UsIm1pbl9kZWxheSI6MiwiZGVmZW5zaXZlX2xlZnRfb2Zmc2V0IjowLCJ5YXdfbW9kaWZpZXJfd2F5cyI6MywiZGVmZW5zaXZlX3N3aXRjaCI6ZmFsc2UsInJpZ2h0X29mZnNldCI6MCwiZGVmZW5zaXZlX3lhdyI6IlN3aXRjaCIsImludmVydF9jaGFuY2UiOjEwMCwiZGVmZW5zaXZlX3lhd19vZmZzZXQiOjAsImZvcmNlX2RlZmVuc2l2ZSI6ZmFsc2UsImRlZmVuc2l2ZV95YXdfbWluIjowLCJkZWZlbnNpdmVfcGl0Y2hfbWluIjowLCJkZWZlbnNpdmVfZGVsYXkiOjI0LCJib2R5X3lhd19tb2RlIjoiSml0dGVyIiwiZGVmZW5zaXZlXzM2MF9vZmZzZXQiOjE4MCwiZGVmZW5zaXZlX3lhd19tYXgiOjAsImRlZmVuc2l2ZV9yaWdodF9vZmZzZXQiOjAsImRlZmVuc2l2ZV9waXRjaF9vZmZzZXQiOjAsImxlZnRfb2Zmc2V0IjowfSwiU3RhbmRpbmciOnsiYm9keV95YXdfb2Zmc2V0IjowLCJ5YXdfbW9kaWZpZXJfb2Zmc2V0IjotMjEsInlhd19tb2RpZmllcl9tb2RlIjoiQ2VudGVyIiwibWF4X2RlbGF5IjoyLCJ5YXdfb2Zmc2V0IjowLCJkZWZlbnNpdmVfeWF3X3NwZWVkIjoxLCJ5YXdfbW9kaWZpZXIiOnRydWUsImRlZmVuc2l2ZV9waXRjaCI6IkN1c3RvbSIsImRlZmVuc2l2ZV95YXdfZGVsYXkiOjIsImFsbG93X2xlZ2FjeSI6dHJ1ZSwiZGVmZW5zaXZlX3BpdGNoX21heCI6MCwiZGVsYXkiOjIsImJvZHlfeWF3Ijp0cnVlLCJ5YXdfYWRkIjp0cnVlLCJtaW5fZGVsYXkiOjIsImRlZmVuc2l2ZV9sZWZ0X29mZnNldCI6MjMsInlhd19tb2RpZmllcl93YXlzIjozLCJkZWZlbnNpdmVfc3dpdGNoIjpmYWxzZSwicmlnaHRfb2Zmc2V0IjoyMywiZGVmZW5zaXZlX3lhdyI6IlN3aXRjaCIsImludmVydF9jaGFuY2UiOjEwMCwiZGVmZW5zaXZlX3lhd19vZmZzZXQiOjAsImZvcmNlX2RlZmVuc2l2ZSI6ZmFsc2UsImRlZmVuc2l2ZV95YXdfbWluIjowLCJkZWZlbnNpdmVfcGl0Y2hfbWluIjowLCJkZWZlbnNpdmVfZGVsYXkiOjE3LCJib2R5X3lhd19tb2RlIjoiSml0dGVyIiwiZGVmZW5zaXZlXzM2MF9vZmZzZXQiOjE4MSwiZGVmZW5zaXZlX3lhd19tYXgiOjAsImRlZmVuc2l2ZV9yaWdodF9vZmZzZXQiOjIzLCJkZWZlbnNpdmVfcGl0Y2hfb2Zmc2V0IjowLCJsZWZ0X29mZnNldCI6LTMyfX0_"
-            if presetData and presetData ~= "" then
-                local data = antiaim.configs.decompile(presetData)
-                if data then
-                    local importedCount = 0
-                    for i = 1, #antiaim.states_names do
-                        local stateName = antiaim.states_names[i]
-                        if data[stateName] then
-                            antiaim.configs.import(stateName, data[stateName])
-                            importedCount = importedCount + 1
-                        end
-                    end
-                    
-                    if importedCount > 0 then
-                        if originalBuilderType and menu.elements["antiaim"]["builder_type"] then
-                            menu.elements["antiaim"]["builder_type"] = originalBuilderType
-                        end
-                        
-                        client.exec("play ui\\beepclear")
-                        hasAppliedFastPreset = true
-                        lastAppliedPreset = currentPreset
-                    end
-                end
-            end
-        end
-    
+        presetData = fastdelay
     elseif currentPreset == "delayed jitter" then
-        if not hasAppliedDelayPreset then
-            local presetData = "cabbtral::gs::state::eyJTbmVha2luZyI6eyJib2R5X3lhd19vZmZzZXQiOjAsInlhd19tb2RpZmllcl9vZmZzZXQiOjIwLCJ5YXdfbW9kaWZpZXJfbW9kZSI6IkNlbnRlciB2MiIsIm1heF9kZWxheSI6MiwieWF3X29mZnNldCI6MCwiZGVmZW5zaXZlX3lhd19zcGVlZCI6MSwieWF3X21vZGlmaWVyIjp0cnVlLCJkZWZlbnNpdmVfcGl0Y2giOiJDdXN0b20iLCJkZWZlbnNpdmVfeWF3X2RlbGF5IjoyLCJhbGxvd19sZWdhY3kiOnRydWUsImRlZmVuc2l2ZV9waXRjaF9tYXgiOjAsImRlbGF5IjozLCJib2R5X3lhdyI6dHJ1ZSwieWF3X2FkZCI6dHJ1ZSwibWluX2RlbGF5IjoyLCJkZWZlbnNpdmVfbGVmdF9vZmZzZXQiOjQzLCJ5YXdfbW9kaWZpZXJfd2F5cyI6MywiZGVmZW5zaXZlX3N3aXRjaCI6ZmFsc2UsInJpZ2h0X29mZnNldCI6NDMsImRlZmVuc2l2ZV95YXciOiJDdXN0b20iLCJpbnZlcnRfY2hhbmNlIjoxMDAsImRlZmVuc2l2ZV95YXdfb2Zmc2V0IjowLCJmb3JjZV9kZWZlbnNpdmUiOnRydWUsImRlZmVuc2l2ZV95YXdfbWluIjowLCJkZWZlbnNpdmVfcGl0Y2hfbWluIjowLCJkZWZlbnNpdmVfZGVsYXkiOjIsImJvZHlfeWF3X21vZGUiOiJKaXR0ZXIiLCJkZWZlbnNpdmVfMzYwX29mZnNldCI6MTgwLCJkZWZlbnNpdmVfeWF3X21heCI6MCwiZGVmZW5zaXZlX3JpZ2h0X29mZnNldCI6NDMsImRlZmVuc2l2ZV9waXRjaF9vZmZzZXQiOjAsImxlZnRfb2Zmc2V0IjotMjF9LCJBaXIgJiBDcm91Y2giOnsiYm9keV95YXdfb2Zmc2V0IjowLCJ5YXdfbW9kaWZpZXJfb2Zmc2V0IjotMTQsInlhd19tb2RpZmllcl9tb2RlIjoiQ2VudGVyIHYyIiwibWF4X2RlbGF5IjoyLCJ5YXdfb2Zmc2V0IjowLCJkZWZlbnNpdmVfeWF3X3NwZWVkIjoyMiwieWF3X21vZGlmaWVyIjp0cnVlLCJkZWZlbnNpdmVfcGl0Y2giOiJTcGluIiwiZGVmZW5zaXZlX3lhd19kZWxheSI6MiwiYWxsb3dfbGVnYWN5Ijp0cnVlLCJkZWZlbnNpdmVfcGl0Y2hfbWF4IjozMiwiZGVsYXkiOjQsImJvZHlfeWF3Ijp0cnVlLCJ5YXdfYWRkIjp0cnVlLCJtaW5fZGVsYXkiOjQsImRlZmVuc2l2ZV9sZWZ0X29mZnNldCI6NDMsInlhd19tb2RpZmllcl93YXlzIjozLCJkZWZlbnNpdmVfc3dpdGNoIjpmYWxzZSwicmlnaHRfb2Zmc2V0Ijo0MywiZGVmZW5zaXZlX3lhdyI6IlN3YXkiLCJpbnZlcnRfY2hhbmNlIjoxMDAsImRlZmVuc2l2ZV95YXdfb2Zmc2V0IjowLCJmb3JjZV9kZWZlbnNpdmUiOmZhbHNlLCJkZWZlbnNpdmVfeWF3X21pbiI6MTEzLCJkZWZlbnNpdmVfcGl0Y2hfbWluIjotMzIsImRlZmVuc2l2ZV9kZWxheSI6MiwiYm9keV95YXdfbW9kZSI6IlJhbmRvbWl6ZSBKaXR0ZXIiLCJkZWZlbnNpdmVfMzYwX29mZnNldCI6Mjg0LCJkZWZlbnNpdmVfeWF3X21heCI6LTE1MSwiZGVmZW5zaXZlX3JpZ2h0X29mZnNldCI6NDMsImRlZmVuc2l2ZV9waXRjaF9vZmZzZXQiOjAsImxlZnRfb2Zmc2V0IjotMjV9LCJBaXIiOnsiYm9keV95YXdfb2Zmc2V0IjowLCJ5YXdfbW9kaWZpZXJfb2Zmc2V0Ijo5LCJ5YXdfbW9kaWZpZXJfbW9kZSI6IkNlbnRlciB2MiIsIm1heF9kZWxheSI6MiwieWF3X29mZnNldCI6MCwiZGVmZW5zaXZlX3lhd19zcGVlZCI6NTAsInlhd19tb2RpZmllciI6dHJ1ZSwiZGVmZW5zaXZlX3BpdGNoIjoiUmFuZG9tIiwiZGVmZW5zaXZlX3lhd19kZWxheSI6MiwiYWxsb3dfbGVnYWN5Ijp0cnVlLCJkZWZlbnNpdmVfcGl0Y2hfbWF4IjozMiwiZGVsYXkiOjIsImJvZHlfeWF3Ijp0cnVlLCJ5YXdfYWRkIjpmYWxzZSwibWluX2RlbGF5IjoyLCJkZWZlbnNpdmVfbGVmdF9vZmZzZXQiOjAsInlhd19tb2RpZmllcl93YXlzIjozLCJkZWZlbnNpdmVfc3dpdGNoIjpmYWxzZSwicmlnaHRfb2Zmc2V0IjowLCJkZWZlbnNpdmVfeWF3IjoiU3BpbiIsImludmVydF9jaGFuY2UiOjEwMCwiZGVmZW5zaXZlX3lhd19vZmZzZXQiOjAsImZvcmNlX2RlZmVuc2l2ZSI6ZmFsc2UsImRlZmVuc2l2ZV95YXdfbWluIjoxMjAsImRlZmVuc2l2ZV9waXRjaF9taW4iOi0yNCwiZGVmZW5zaXZlX2RlbGF5IjoyLCJib2R5X3lhd19tb2RlIjoiSml0dGVyIiwiZGVmZW5zaXZlXzM2MF9vZmZzZXQiOjI4OCwiZGVmZW5zaXZlX3lhd19tYXgiOi05OSwiZGVmZW5zaXZlX3JpZ2h0X29mZnNldCI6MCwiZGVmZW5zaXZlX3BpdGNoX29mZnNldCI6MCwibGVmdF9vZmZzZXQiOjB9LCJidWlsZGVyX3R5cGUiOiJDdXN0b20iLCJTaGFyZWQiOnsieWF3X21vZGlmaWVyX29mZnNldCI6MCwiZGVsYXkiOjIsIm1heF9kZWxheSI6MiwiZGVmZW5zaXZlX2xlZnRfb2Zmc2V0IjowLCJkZWZlbnNpdmVfeWF3X3NwZWVkIjoxLCJ5YXdfbW9kaWZpZXJfbW9kZSI6IkNlbnRlciIsImRlZmVuc2l2ZV9waXRjaCI6IkN1c3RvbSIsImRlZmVuc2l2ZV95YXdfZGVsYXkiOjIsInlhd19tb2RpZmllciI6ZmFsc2UsImRlZmVuc2l2ZV9waXRjaF9tYXgiOjAsImRlZmVuc2l2ZV9zd2l0Y2giOmZhbHNlLCJib2R5X3lhdyI6ZmFsc2UsInlhd19hZGQiOmZhbHNlLCJtaW5fZGVsYXkiOjIsImRlZmVuc2l2ZV95YXdfbWF4IjowLCJib2R5X3lhd19vZmZzZXQiOjAsInlhd19tb2RpZmllcl93YXlzIjozLCJyaWdodF9vZmZzZXQiOjAsImRlZmVuc2l2ZV95YXciOiJDdXN0b20iLCJpbnZlcnRfY2hhbmNlIjoxMDAsImRlZmVuc2l2ZV95YXdfb2Zmc2V0IjowLCJmb3JjZV9kZWZlbnNpdmUiOmZhbHNlLCJkZWZlbnNpdmVfeWF3X21pbiI6MCwiZGVmZW5zaXZlX3BpdGNoX21pbiI6MCwibGVmdF9vZmZzZXQiOjAsImJvZHlfeWF3X21vZGUiOiJTdGF0aWMiLCJkZWZlbnNpdmVfMzYwX29mZnNldCI6MTgwLCJkZWZlbnNpdmVfZGVsYXkiOjIsImRlZmVuc2l2ZV9yaWdodF9vZmZzZXQiOjAsImRlZmVuc2l2ZV9waXRjaF9vZmZzZXQiOjAsInlhd19vZmZzZXQiOjB9LCJDcm91Y2hpbmciOnsiYm9keV95YXdfb2Zmc2V0IjowLCJ5YXdfbW9kaWZpZXJfb2Zmc2V0IjowLCJ5YXdfbW9kaWZpZXJfbW9kZSI6IkNlbnRlciIsIm1heF9kZWxheSI6MiwieWF3X29mZnNldCI6MCwiZGVmZW5zaXZlX3lhd19zcGVlZCI6MSwieWF3X21vZGlmaWVyIjpmYWxzZSwiZGVmZW5zaXZlX3BpdGNoIjoiQ3VzdG9tIiwiZGVmZW5zaXZlX3lhd19kZWxheSI6MiwiYWxsb3dfbGVnYWN5Ijp0cnVlLCJkZWZlbnNpdmVfcGl0Y2hfbWF4IjowLCJkZWxheSI6MiwiYm9keV95YXciOnRydWUsInlhd19hZGQiOnRydWUsIm1pbl9kZWxheSI6MiwiZGVmZW5zaXZlX2xlZnRfb2Zmc2V0Ijo0MywieWF3X21vZGlmaWVyX3dheXMiOjMsImRlZmVuc2l2ZV9zd2l0Y2giOmZhbHNlLCJyaWdodF9vZmZzZXQiOjQzLCJkZWZlbnNpdmVfeWF3IjoiU3dpdGNoIiwiaW52ZXJ0X2NoYW5jZSI6MTAwLCJkZWZlbnNpdmVfeWF3X29mZnNldCI6MCwiZm9yY2VfZGVmZW5zaXZlIjpmYWxzZSwiZGVmZW5zaXZlX3lhd19taW4iOjAsImRlZmVuc2l2ZV9waXRjaF9taW4iOjAsImRlZmVuc2l2ZV9kZWxheSI6MSwiYm9keV95YXdfbW9kZSI6IkppdHRlciIsImRlZmVuc2l2ZV8zNjBfb2Zmc2V0IjoyMTcsImRlZmVuc2l2ZV95YXdfbWF4IjowLCJkZWZlbnNpdmVfcmlnaHRfb2Zmc2V0Ijo0MywiZGVmZW5zaXZlX3BpdGNoX29mZnNldCI6LTQ2LCJsZWZ0X29mZnNldCI6LTIxfSwiUnVubmluZyI6eyJib2R5X3lhd19vZmZzZXQiOjAsInlhd19tb2RpZmllcl9vZmZzZXQiOi0yMSwieWF3X21vZGlmaWVyX21vZGUiOiJDZW50ZXIgdjIiLCJtYXhfZGVsYXkiOjIsInlhd19vZmZzZXQiOjAsImRlZmVuc2l2ZV95YXdfc3BlZWQiOjEsInlhd19tb2RpZmllciI6dHJ1ZSwiZGVmZW5zaXZlX3BpdGNoIjoiQ3VzdG9tIiwiZGVmZW5zaXZlX3lhd19kZWxheSI6MiwiYWxsb3dfbGVnYWN5Ijp0cnVlLCJkZWZlbnNpdmVfcGl0Y2hfbWF4IjowLCJkZWxheSI6MiwiYm9keV95YXciOnRydWUsInlhd19hZGQiOnRydWUsIm1pbl9kZWxheSI6MiwiZGVmZW5zaXZlX2xlZnRfb2Zmc2V0IjoyMywieWF3X21vZGlmaWVyX3dheXMiOjMsImRlZmVuc2l2ZV9zd2l0Y2giOmZhbHNlLCJyaWdodF9vZmZzZXQiOjIzLCJkZWZlbnNpdmVfeWF3IjoiQ3VzdG9tIiwiaW52ZXJ0X2NoYW5jZSI6MTAwLCJkZWZlbnNpdmVfeWF3X29mZnNldCI6MCwiZm9yY2VfZGVmZW5zaXZlIjpmYWxzZSwiZGVmZW5zaXZlX3lhd19taW4iOjAsImRlZmVuc2l2ZV9waXRjaF9taW4iOjAsImRlZmVuc2l2ZV9kZWxheSI6MiwiYm9keV95YXdfbW9kZSI6IkppdHRlciIsImRlZmVuc2l2ZV8zNjBfb2Zmc2V0IjoxODAsImRlZmVuc2l2ZV95YXdfbWF4IjowLCJkZWZlbnNpdmVfcmlnaHRfb2Zmc2V0IjoyMywiZGVmZW5zaXZlX3BpdGNoX29mZnNldCI6MCwibGVmdF9vZmZzZXQiOi0zNH0sImZsaWNrX3lhdyI6IkZsaWNrIiwiV2Fsa2luZyI6eyJib2R5X3lhd19vZmZzZXQiOjAsInlhd19tb2RpZmllcl9vZmZzZXQiOjksInlhd19tb2RpZmllcl9tb2RlIjoiQ2VudGVyIHYyIiwibWF4X2RlbGF5IjoyLCJ5YXdfb2Zmc2V0IjowLCJkZWZlbnNpdmVfeWF3X3NwZWVkIjoxLCJ5YXdfbW9kaWZpZXIiOnRydWUsImRlZmVuc2l2ZV9waXRjaCI6IlNwaW4iLCJkZWZlbnNpdmVfeWF3X2RlbGF5IjoyLCJhbGxvd19sZWdhY3kiOnRydWUsImRlZmVuc2l2ZV9waXRjaF9tYXgiOi0yNCwiZGVsYXkiOjEsImJvZHlfeWF3Ijp0cnVlLCJ5YXdfYWRkIjpmYWxzZSwibWluX2RlbGF5IjoyLCJkZWZlbnNpdmVfbGVmdF9vZmZzZXQiOjAsInlhd19tb2RpZmllcl93YXlzIjozLCJkZWZlbnNpdmVfc3dpdGNoIjpmYWxzZSwicmlnaHRfb2Zmc2V0IjowLCJkZWZlbnNpdmVfeWF3IjoiU3dpdGNoIiwiaW52ZXJ0X2NoYW5jZSI6MTAwLCJkZWZlbnNpdmVfeWF3X29mZnNldCI6MCwiZm9yY2VfZGVmZW5zaXZlIjpmYWxzZSwiZGVmZW5zaXZlX3lhd19taW4iOjAsImRlZmVuc2l2ZV9waXRjaF9taW4iOjAsImRlZmVuc2l2ZV9kZWxheSI6MjQsImJvZHlfeWF3X21vZGUiOiJKaXR0ZXIiLCJkZWZlbnNpdmVfMzYwX29mZnNldCI6MTgwLCJkZWZlbnNpdmVfeWF3X21heCI6MCwiZGVmZW5zaXZlX3JpZ2h0X29mZnNldCI6MCwiZGVmZW5zaXZlX3BpdGNoX29mZnNldCI6MCwibGVmdF9vZmZzZXQiOjB9LCJTdGFuZGluZyI6eyJib2R5X3lhd19vZmZzZXQiOjAsInlhd19tb2RpZmllcl9vZmZzZXQiOi0yMSwieWF3X21vZGlmaWVyX21vZGUiOiJDZW50ZXIiLCJtYXhfZGVsYXkiOjMsInlhd19vZmZzZXQiOjAsImRlZmVuc2l2ZV95YXdfc3BlZWQiOjEsInlhd19tb2RpZmllciI6dHJ1ZSwiZGVmZW5zaXZlX3BpdGNoIjoiQ3VzdG9tIiwiZGVmZW5zaXZlX3lhd19kZWxheSI6MiwiYWxsb3dfbGVnYWN5Ijp0cnVlLCJkZWZlbnNpdmVfcGl0Y2hfbWF4IjowLCJkZWxheSI6NSwiYm9keV95YXciOnRydWUsInlhd19hZGQiOnRydWUsIm1pbl9kZWxheSI6NiwiZGVmZW5zaXZlX2xlZnRfb2Zmc2V0IjoyMywieWF3X21vZGlmaWVyX3dheXMiOjMsImRlZmVuc2l2ZV9zd2l0Y2giOmZhbHNlLCJyaWdodF9vZmZzZXQiOjIzLCJkZWZlbnNpdmVfeWF3IjoiU3dpdGNoIiwiaW52ZXJ0X2NoYW5jZSI6MTAwLCJkZWZlbnNpdmVfeWF3X29mZnNldCI6MCwiZm9yY2VfZGVmZW5zaXZlIjpmYWxzZSwiZGVmZW5zaXZlX3lhd19taW4iOjAsImRlZmVuc2l2ZV9waXRjaF9taW4iOjAsImRlZmVuc2l2ZV9kZWxheSI6MTcsImJvZHlfeWF3X21vZGUiOiJSYW5kb21pemUgSml0dGVyIiwiZGVmZW5zaXZlXzM2MF9vZmZzZXQiOjE4MSwiZGVmZW5zaXZlX3lhd19tYXgiOjAsImRlZmVuc2l2ZV9yaWdodF9vZmZzZXQiOjIzLCJkZWZlbnNpdmVfcGl0Y2hfb2Zmc2V0IjowLCJsZWZ0X29mZnNldCI6LTMyfX0_"
-            if presetData and presetData ~= "" then
-                local data = antiaim.configs.decompile(presetData)
-                if data then
-                    local importedCount = 0
-                    for i = 1, #antiaim.states_names do
-                        local stateName = antiaim.states_names[i]
-                        if data[stateName] then
-                            antiaim.configs.import(stateName, data[stateName])
-                            importedCount = importedCount + 1
-                        end
-                    end
-                    
-                    if importedCount > 0 then
-                        if originalBuilderType and menu.elements["antiaim"]["builder_type"] then
-                            menu.elements["antiaim"]["builder_type"] = originalBuilderType
-                        end
-                        
-                        client.exec("play ui\\beepclear")
-                        hasAppliedDelayPreset = true
-                        lastAppliedPreset = currentPreset
-                    end
-                end
-            end
-        end
-    
+        presetData = delay
     elseif currentPreset == "unmatched.gg" then
-        if not hasAppliedUnmPreset then
-            local presetData = "cabbtral::gs::state::eyJTbmVha2luZyI6eyJib2R5X3lhd19vZmZzZXQiOjAsInlhd19tb2RpZmllcl9vZmZzZXQiOi0xOCwieWF3X21vZGlmaWVyX21vZGUiOiJDZW50ZXIgdjIiLCJtYXhfZGVsYXkiOjIsInlhd19vZmZzZXQiOjAsImRlZmVuc2l2ZV95YXdfc3BlZWQiOjEsInlhd19tb2RpZmllciI6dHJ1ZSwiZGVmZW5zaXZlX3BpdGNoIjoiQ3VzdG9tIiwiZGVmZW5zaXZlX3lhd19kZWxheSI6MiwiYWxsb3dfbGVnYWN5Ijp0cnVlLCJkZWZlbnNpdmVfcGl0Y2hfbWF4IjowLCJkZWxheSI6NCwiYm9keV95YXciOnRydWUsInlhd19hZGQiOnRydWUsIm1pbl9kZWxheSI6MiwiZGVmZW5zaXZlX2xlZnRfb2Zmc2V0Ijo0MywieWF3X21vZGlmaWVyX3dheXMiOjMsImRlZmVuc2l2ZV9zd2l0Y2giOmZhbHNlLCJyaWdodF9vZmZzZXQiOjQzLCJkZWZlbnNpdmVfeWF3IjoiQ3VzdG9tIiwiaW52ZXJ0X2NoYW5jZSI6MTAwLCJkZWZlbnNpdmVfeWF3X29mZnNldCI6MCwiZm9yY2VfZGVmZW5zaXZlIjp0cnVlLCJkZWZlbnNpdmVfeWF3X21pbiI6MCwiZGVmZW5zaXZlX3BpdGNoX21pbiI6MCwiZGVmZW5zaXZlX2RlbGF5IjoyLCJib2R5X3lhd19tb2RlIjoiSml0dGVyIiwiZGVmZW5zaXZlXzM2MF9vZmZzZXQiOjE4MCwiZGVmZW5zaXZlX3lhd19tYXgiOjAsImRlZmVuc2l2ZV9yaWdodF9vZmZzZXQiOjQzLCJkZWZlbnNpdmVfcGl0Y2hfb2Zmc2V0IjowLCJsZWZ0X29mZnNldCI6LTIxfSwiQWlyICYgQ3JvdWNoIjp7ImJvZHlfeWF3X29mZnNldCI6MCwieWF3X21vZGlmaWVyX29mZnNldCI6LTExLCJ5YXdfbW9kaWZpZXJfbW9kZSI6IkNlbnRlciIsIm1heF9kZWxheSI6NiwieWF3X29mZnNldCI6MCwiZGVmZW5zaXZlX3lhd19zcGVlZCI6MjIsInlhd19tb2RpZmllciI6ZmFsc2UsImRlZmVuc2l2ZV9waXRjaCI6IlNwaW4iLCJkZWZlbnNpdmVfeWF3X2RlbGF5IjoyLCJhbGxvd19sZWdhY3kiOnRydWUsImRlZmVuc2l2ZV9waXRjaF9tYXgiOjMyLCJkZWxheSI6NCwiYm9keV95YXciOnRydWUsInlhd19hZGQiOnRydWUsIm1pbl9kZWxheSI6NCwiZGVmZW5zaXZlX2xlZnRfb2Zmc2V0Ijo0MywieWF3X21vZGlmaWVyX3dheXMiOjMsImRlZmVuc2l2ZV9zd2l0Y2giOmZhbHNlLCJyaWdodF9vZmZzZXQiOjQzLCJkZWZlbnNpdmVfeWF3IjoiU3dheSIsImludmVydF9jaGFuY2UiOjEwMCwiZGVmZW5zaXZlX3lhd19vZmZzZXQiOjAsImZvcmNlX2RlZmVuc2l2ZSI6ZmFsc2UsImRlZmVuc2l2ZV95YXdfbWluIjoxMTMsImRlZmVuc2l2ZV9waXRjaF9taW4iOi0zMiwiZGVmZW5zaXZlX2RlbGF5IjoyLCJib2R5X3lhd19tb2RlIjoiUmFuZG9taXplIEppdHRlciIsImRlZmVuc2l2ZV8zNjBfb2Zmc2V0IjoyODQsImRlZmVuc2l2ZV95YXdfbWF4IjotMTUxLCJkZWZlbnNpdmVfcmlnaHRfb2Zmc2V0Ijo0MywiZGVmZW5zaXZlX3BpdGNoX29mZnNldCI6MCwibGVmdF9vZmZzZXQiOi0yNX0sIkFpciI6eyJib2R5X3lhd19vZmZzZXQiOjAsInlhd19tb2RpZmllcl9vZmZzZXQiOi0yMCwieWF3X21vZGlmaWVyX21vZGUiOiJDZW50ZXIgdjIiLCJtYXhfZGVsYXkiOjIsInlhd19vZmZzZXQiOjAsImRlZmVuc2l2ZV95YXdfc3BlZWQiOjUwLCJ5YXdfbW9kaWZpZXIiOnRydWUsImRlZmVuc2l2ZV9waXRjaCI6IlJhbmRvbSIsImRlZmVuc2l2ZV95YXdfZGVsYXkiOjIsImFsbG93X2xlZ2FjeSI6dHJ1ZSwiZGVmZW5zaXZlX3BpdGNoX21heCI6MzIsImRlbGF5IjoxLCJib2R5X3lhdyI6dHJ1ZSwieWF3X2FkZCI6ZmFsc2UsIm1pbl9kZWxheSI6MiwiZGVmZW5zaXZlX2xlZnRfb2Zmc2V0IjowLCJ5YXdfbW9kaWZpZXJfd2F5cyI6MywiZGVmZW5zaXZlX3N3aXRjaCI6ZmFsc2UsInJpZ2h0X29mZnNldCI6MCwiZGVmZW5zaXZlX3lhdyI6IlNwaW4iLCJpbnZlcnRfY2hhbmNlIjoxMDAsImRlZmVuc2l2ZV95YXdfb2Zmc2V0IjowLCJmb3JjZV9kZWZlbnNpdmUiOmZhbHNlLCJkZWZlbnNpdmVfeWF3X21pbiI6MTIwLCJkZWZlbnNpdmVfcGl0Y2hfbWluIjotMjQsImRlZmVuc2l2ZV9kZWxheSI6MiwiYm9keV95YXdfbW9kZSI6IkppdHRlciIsImRlZmVuc2l2ZV8zNjBfb2Zmc2V0IjoyODgsImRlZmVuc2l2ZV95YXdfbWF4IjotOTksImRlZmVuc2l2ZV9yaWdodF9vZmZzZXQiOjAsImRlZmVuc2l2ZV9waXRjaF9vZmZzZXQiOjAsImxlZnRfb2Zmc2V0IjowfSwiYnVpbGRlcl90eXBlIjoiQ3VzdG9tIiwiU2hhcmVkIjp7Inlhd19tb2RpZmllcl9vZmZzZXQiOjAsImRlbGF5IjoyLCJtYXhfZGVsYXkiOjIsImRlZmVuc2l2ZV9sZWZ0X29mZnNldCI6MCwiZGVmZW5zaXZlX3lhd19zcGVlZCI6MSwieWF3X21vZGlmaWVyX21vZGUiOiJDZW50ZXIiLCJkZWZlbnNpdmVfcGl0Y2giOiJDdXN0b20iLCJkZWZlbnNpdmVfeWF3X2RlbGF5IjoyLCJ5YXdfbW9kaWZpZXIiOmZhbHNlLCJkZWZlbnNpdmVfcGl0Y2hfbWF4IjowLCJkZWZlbnNpdmVfc3dpdGNoIjpmYWxzZSwiYm9keV95YXciOmZhbHNlLCJ5YXdfYWRkIjpmYWxzZSwibWluX2RlbGF5IjoyLCJkZWZlbnNpdmVfeWF3X21heCI6MCwiYm9keV95YXdfb2Zmc2V0IjowLCJ5YXdfbW9kaWZpZXJfd2F5cyI6MywicmlnaHRfb2Zmc2V0IjowLCJkZWZlbnNpdmVfeWF3IjoiQ3VzdG9tIiwiaW52ZXJ0X2NoYW5jZSI6MTAwLCJkZWZlbnNpdmVfeWF3X29mZnNldCI6MCwiZm9yY2VfZGVmZW5zaXZlIjpmYWxzZSwiZGVmZW5zaXZlX3lhd19taW4iOjAsImRlZmVuc2l2ZV9waXRjaF9taW4iOjAsImxlZnRfb2Zmc2V0IjowLCJib2R5X3lhd19tb2RlIjoiU3RhdGljIiwiZGVmZW5zaXZlXzM2MF9vZmZzZXQiOjE4MCwiZGVmZW5zaXZlX2RlbGF5IjoyLCJkZWZlbnNpdmVfcmlnaHRfb2Zmc2V0IjowLCJkZWZlbnNpdmVfcGl0Y2hfb2Zmc2V0IjowLCJ5YXdfb2Zmc2V0IjowfSwiQ3JvdWNoaW5nIjp7ImJvZHlfeWF3X29mZnNldCI6MCwieWF3X21vZGlmaWVyX29mZnNldCI6MCwieWF3X21vZGlmaWVyX21vZGUiOiJDZW50ZXIiLCJtYXhfZGVsYXkiOjIsInlhd19vZmZzZXQiOjAsImRlZmVuc2l2ZV95YXdfc3BlZWQiOjEsInlhd19tb2RpZmllciI6ZmFsc2UsImRlZmVuc2l2ZV9waXRjaCI6IkN1c3RvbSIsImRlZmVuc2l2ZV95YXdfZGVsYXkiOjIsImFsbG93X2xlZ2FjeSI6dHJ1ZSwiZGVmZW5zaXZlX3BpdGNoX21heCI6MCwiZGVsYXkiOjMsImJvZHlfeWF3Ijp0cnVlLCJ5YXdfYWRkIjp0cnVlLCJtaW5fZGVsYXkiOjIsImRlZmVuc2l2ZV9sZWZ0X29mZnNldCI6NDMsInlhd19tb2RpZmllcl93YXlzIjozLCJkZWZlbnNpdmVfc3dpdGNoIjpmYWxzZSwicmlnaHRfb2Zmc2V0Ijo0MywiZGVmZW5zaXZlX3lhdyI6IlN3aXRjaCIsImludmVydF9jaGFuY2UiOjEwMCwiZGVmZW5zaXZlX3lhd19vZmZzZXQiOjAsImZvcmNlX2RlZmVuc2l2ZSI6ZmFsc2UsImRlZmVuc2l2ZV95YXdfbWluIjowLCJkZWZlbnNpdmVfcGl0Y2hfbWluIjowLCJkZWZlbnNpdmVfZGVsYXkiOjEsImJvZHlfeWF3X21vZGUiOiJKaXR0ZXIiLCJkZWZlbnNpdmVfMzYwX29mZnNldCI6MjE3LCJkZWZlbnNpdmVfeWF3X21heCI6MCwiZGVmZW5zaXZlX3JpZ2h0X29mZnNldCI6NDMsImRlZmVuc2l2ZV9waXRjaF9vZmZzZXQiOi00NiwibGVmdF9vZmZzZXQiOi0yMX0sIlJ1bm5pbmciOnsiYm9keV95YXdfb2Zmc2V0IjowLCJ5YXdfbW9kaWZpZXJfb2Zmc2V0IjotMjEsInlhd19tb2RpZmllcl9tb2RlIjoiQ2VudGVyIHYyIiwibWF4X2RlbGF5IjoyLCJ5YXdfb2Zmc2V0IjowLCJkZWZlbnNpdmVfeWF3X3NwZWVkIjoxLCJ5YXdfbW9kaWZpZXIiOnRydWUsImRlZmVuc2l2ZV9waXRjaCI6IkN1c3RvbSIsImRlZmVuc2l2ZV95YXdfZGVsYXkiOjIsImFsbG93X2xlZ2FjeSI6dHJ1ZSwiZGVmZW5zaXZlX3BpdGNoX21heCI6MCwiZGVsYXkiOjIsImJvZHlfeWF3Ijp0cnVlLCJ5YXdfYWRkIjp0cnVlLCJtaW5fZGVsYXkiOjIsImRlZmVuc2l2ZV9sZWZ0X29mZnNldCI6MjMsInlhd19tb2RpZmllcl93YXlzIjozLCJkZWZlbnNpdmVfc3dpdGNoIjpmYWxzZSwicmlnaHRfb2Zmc2V0IjoyMywiZGVmZW5zaXZlX3lhdyI6IkN1c3RvbSIsImludmVydF9jaGFuY2UiOjEwMCwiZGVmZW5zaXZlX3lhd19vZmZzZXQiOjAsImZvcmNlX2RlZmVuc2l2ZSI6ZmFsc2UsImRlZmVuc2l2ZV95YXdfbWluIjowLCJkZWZlbnNpdmVfcGl0Y2hfbWluIjowLCJkZWZlbnNpdmVfZGVsYXkiOjIsImJvZHlfeWF3X21vZGUiOiJKaXR0ZXIiLCJkZWZlbnNpdmVfMzYwX29mZnNldCI6MTgwLCJkZWZlbnNpdmVfeWF3X21heCI6MCwiZGVmZW5zaXZlX3JpZ2h0X29mZnNldCI6MjMsImRlZmVuc2l2ZV9waXRjaF9vZmZzZXQiOjAsImxlZnRfb2Zmc2V0IjotMzR9LCJmbGlja195YXciOiJTdGF0aWMiLCJXYWxraW5nIjp7ImJvZHlfeWF3X29mZnNldCI6MCwieWF3X21vZGlmaWVyX29mZnNldCI6LTU2LCJ5YXdfbW9kaWZpZXJfbW9kZSI6IkNlbnRlciB2MiIsIm1heF9kZWxheSI6MiwieWF3X29mZnNldCI6MCwiZGVmZW5zaXZlX3lhd19zcGVlZCI6MSwieWF3X21vZGlmaWVyIjp0cnVlLCJkZWZlbnNpdmVfcGl0Y2giOiJTcGluIiwiZGVmZW5zaXZlX3lhd19kZWxheSI6MiwiYWxsb3dfbGVnYWN5Ijp0cnVlLCJkZWZlbnNpdmVfcGl0Y2hfbWF4IjotMjQsImRlbGF5IjoxLCJib2R5X3lhdyI6dHJ1ZSwieWF3X2FkZCI6ZmFsc2UsIm1pbl9kZWxheSI6MiwiZGVmZW5zaXZlX2xlZnRfb2Zmc2V0IjowLCJ5YXdfbW9kaWZpZXJfd2F5cyI6MywiZGVmZW5zaXZlX3N3aXRjaCI6ZmFsc2UsInJpZ2h0X29mZnNldCI6MCwiZGVmZW5zaXZlX3lhdyI6IlN3aXRjaCIsImludmVydF9jaGFuY2UiOjEwMCwiZGVmZW5zaXZlX3lhd19vZmZzZXQiOjAsImZvcmNlX2RlZmVuc2l2ZSI6ZmFsc2UsImRlZmVuc2l2ZV95YXdfbWluIjowLCJkZWZlbnNpdmVfcGl0Y2hfbWluIjowLCJkZWZlbnNpdmVfZGVsYXkiOjI0LCJib2R5X3lhd19tb2RlIjoiSml0dGVyIiwiZGVmZW5zaXZlXzM2MF9vZmZzZXQiOjE4MCwiZGVmZW5zaXZlX3lhd19tYXgiOjAsImRlZmVuc2l2ZV9yaWdodF9vZmZzZXQiOjAsImRlZmVuc2l2ZV9waXRjaF9vZmZzZXQiOjAsImxlZnRfb2Zmc2V0IjowfSwiU3RhbmRpbmciOnsiYm9keV95YXdfb2Zmc2V0IjowLCJ5YXdfbW9kaWZpZXJfb2Zmc2V0IjotMjEsInlhd19tb2RpZmllcl9tb2RlIjoiQ2VudGVyIiwibWF4X2RlbGF5IjoyLCJ5YXdfb2Zmc2V0IjowLCJkZWZlbnNpdmVfeWF3X3NwZWVkIjoxLCJ5YXdfbW9kaWZpZXIiOnRydWUsImRlZmVuc2l2ZV9waXRjaCI6IkN1c3RvbSIsImRlZmVuc2l2ZV95YXdfZGVsYXkiOjIsImFsbG93X2xlZ2FjeSI6dHJ1ZSwiZGVmZW5zaXZlX3BpdGNoX21heCI6MCwiZGVsYXkiOjEsImJvZHlfeWF3Ijp0cnVlLCJ5YXdfYWRkIjp0cnVlLCJtaW5fZGVsYXkiOjIsImRlZmVuc2l2ZV9sZWZ0X29mZnNldCI6MjMsInlhd19tb2RpZmllcl93YXlzIjozLCJkZWZlbnNpdmVfc3dpdGNoIjpmYWxzZSwicmlnaHRfb2Zmc2V0IjoyMywiZGVmZW5zaXZlX3lhdyI6IlN3aXRjaCIsImludmVydF9jaGFuY2UiOjEwMCwiZGVmZW5zaXZlX3lhd19vZmZzZXQiOjAsImZvcmNlX2RlZmVuc2l2ZSI6ZmFsc2UsImRlZmVuc2l2ZV95YXdfbWluIjowLCJkZWZlbnNpdmVfcGl0Y2hfbWluIjowLCJkZWZlbnNpdmVfZGVsYXkiOjE3LCJib2R5X3lhd19tb2RlIjoiSml0dGVyIiwiZGVmZW5zaXZlXzM2MF9vZmZzZXQiOjE4MSwiZGVmZW5zaXZlX3lhd19tYXgiOjAsImRlZmVuc2l2ZV9yaWdodF9vZmZzZXQiOjIzLCJkZWZlbnNpdmVfcGl0Y2hfb2Zmc2V0IjowLCJsZWZ0X29mZnNldCI6LTMyfX0_"
-            if presetData and presetData ~= "" then
-                local data = antiaim.configs.decompile(presetData)
-                if data then
-                    local importedCount = 0
-                    for i = 1, #antiaim.states_names do
-                        local stateName = antiaim.states_names[i]
-                        if data[stateName] then
-                            antiaim.configs.import(stateName, data[stateName])
-                            importedCount = importedCount + 1
-                        end
-                    end
-                    
-                    if importedCount > 0 then
-                        if originalBuilderType and menu.elements["antiaim"]["builder_type"] then
-                            menu.elements["antiaim"]["builder_type"] = originalBuilderType
-                        end
-                        
-                        client.exec("play ui\\beepclear")
-                        hasAppliedUnmPreset = true
-                        lastAppliedPreset = currentPreset
-                    end
-                end
-            end
-        end
-    
+        presetData = unm
     elseif currentPreset == "snappy" then
-        if not hasAppliedSnappyPreset then
-            local presetData = "cabbtral::gs::state::eyJTbmVha2luZyI6eyJib2R5X3lhd19vZmZzZXQiOjAsInlhd19tb2RpZmllcl9vZmZzZXQiOi0xOCwieWF3X21vZGlmaWVyX21vZGUiOiJDZW50ZXIgdjIiLCJtYXhfZGVsYXkiOjQsInlhd19vZmZzZXQiOjAsImRlZmVuc2l2ZV95YXdfc3BlZWQiOjEsInlhd19tb2RpZmllciI6dHJ1ZSwiZGVmZW5zaXZlX3BpdGNoIjoiQ3VzdG9tIiwiZGVmZW5zaXZlX3lhd19kZWxheSI6MiwiYWxsb3dfbGVnYWN5Ijp0cnVlLCJkZWZlbnNpdmVfcGl0Y2hfbWF4IjowLCJkZWxheSI6NCwiYm9keV95YXciOnRydWUsInlhd19hZGQiOnRydWUsIm1pbl9kZWxheSI6MywiZGVmZW5zaXZlX2xlZnRfb2Zmc2V0Ijo0MywieWF3X21vZGlmaWVyX3dheXMiOjMsImRlZmVuc2l2ZV9zd2l0Y2giOmZhbHNlLCJyaWdodF9vZmZzZXQiOjQzLCJkZWZlbnNpdmVfeWF3IjoiQ3VzdG9tIiwiaW52ZXJ0X2NoYW5jZSI6MTAwLCJkZWZlbnNpdmVfeWF3X29mZnNldCI6MCwiZm9yY2VfZGVmZW5zaXZlIjp0cnVlLCJkZWZlbnNpdmVfeWF3X21pbiI6MCwiZGVmZW5zaXZlX3BpdGNoX21pbiI6MCwiZGVmZW5zaXZlX2RlbGF5IjoyLCJib2R5X3lhd19tb2RlIjoiUmFuZG9taXplIEppdHRlciIsImRlZmVuc2l2ZV8zNjBfb2Zmc2V0IjoxODAsImRlZmVuc2l2ZV95YXdfbWF4IjowLCJkZWZlbnNpdmVfcmlnaHRfb2Zmc2V0Ijo0MywiZGVmZW5zaXZlX3BpdGNoX29mZnNldCI6MCwibGVmdF9vZmZzZXQiOi0yMX0sIkFpciAmIENyb3VjaCI6eyJib2R5X3lhd19vZmZzZXQiOjAsInlhd19tb2RpZmllcl9vZmZzZXQiOi0xMSwieWF3X21vZGlmaWVyX21vZGUiOiJDZW50ZXIiLCJtYXhfZGVsYXkiOjYsInlhd19vZmZzZXQiOjAsImRlZmVuc2l2ZV95YXdfc3BlZWQiOjIyLCJ5YXdfbW9kaWZpZXIiOmZhbHNlLCJkZWZlbnNpdmVfcGl0Y2giOiJTcGluIiwiZGVmZW5zaXZlX3lhd19kZWxheSI6MiwiYWxsb3dfbGVnYWN5Ijp0cnVlLCJkZWZlbnNpdmVfcGl0Y2hfbWF4IjozMiwiZGVsYXkiOjQsImJvZHlfeWF3Ijp0cnVlLCJ5YXdfYWRkIjp0cnVlLCJtaW5fZGVsYXkiOjQsImRlZmVuc2l2ZV9sZWZ0X29mZnNldCI6NDMsInlhd19tb2RpZmllcl93YXlzIjozLCJkZWZlbnNpdmVfc3dpdGNoIjpmYWxzZSwicmlnaHRfb2Zmc2V0Ijo0MywiZGVmZW5zaXZlX3lhdyI6IlN3YXkiLCJpbnZlcnRfY2hhbmNlIjoxMDAsImRlZmVuc2l2ZV95YXdfb2Zmc2V0IjowLCJmb3JjZV9kZWZlbnNpdmUiOmZhbHNlLCJkZWZlbnNpdmVfeWF3X21pbiI6MTEzLCJkZWZlbnNpdmVfcGl0Y2hfbWluIjotMzIsImRlZmVuc2l2ZV9kZWxheSI6MiwiYm9keV95YXdfbW9kZSI6IlJhbmRvbWl6ZSBKaXR0ZXIiLCJkZWZlbnNpdmVfMzYwX29mZnNldCI6Mjg0LCJkZWZlbnNpdmVfeWF3X21heCI6LTE1MSwiZGVmZW5zaXZlX3JpZ2h0X29mZnNldCI6NDMsImRlZmVuc2l2ZV9waXRjaF9vZmZzZXQiOjAsImxlZnRfb2Zmc2V0IjotMjV9LCJBaXIiOnsiYm9keV95YXdfb2Zmc2V0IjowLCJ5YXdfbW9kaWZpZXJfb2Zmc2V0IjotMjAsInlhd19tb2RpZmllcl9tb2RlIjoiQ2VudGVyIHYyIiwibWF4X2RlbGF5IjoyLCJ5YXdfb2Zmc2V0IjowLCJkZWZlbnNpdmVfeWF3X3NwZWVkIjo1MCwieWF3X21vZGlmaWVyIjp0cnVlLCJkZWZlbnNpdmVfcGl0Y2giOiJSYW5kb20iLCJkZWZlbnNpdmVfeWF3X2RlbGF5IjoyLCJhbGxvd19sZWdhY3kiOnRydWUsImRlZmVuc2l2ZV9waXRjaF9tYXgiOjMyLCJkZWxheSI6MSwiYm9keV95YXciOnRydWUsInlhd19hZGQiOmZhbHNlLCJtaW5fZGVsYXkiOjIsImRlZmVuc2l2ZV9sZWZ0X29mZnNldCI6MCwieWF3X21vZGlmaWVyX3dheXMiOjMsImRlZmVuc2l2ZV9zd2l0Y2giOmZhbHNlLCJyaWdodF9vZmZzZXQiOjAsImRlZmVuc2l2ZV95YXciOiJTcGluIiwiaW52ZXJ0X2NoYW5jZSI6MTAwLCJkZWZlbnNpdmVfeWF3X29mZnNldCI6MCwiZm9yY2VfZGVmZW5zaXZlIjpmYWxzZSwiZGVmZW5zaXZlX3lhd19taW4iOjEyMCwiZGVmZW5zaXZlX3BpdGNoX21pbiI6LTI0LCJkZWZlbnNpdmVfZGVsYXkiOjIsImJvZHlfeWF3X21vZGUiOiJKaXR0ZXIiLCJkZWZlbnNpdmVfMzYwX29mZnNldCI6Mjg4LCJkZWZlbnNpdmVfeWF3X21heCI6LTk5LCJkZWZlbnNpdmVfcmlnaHRfb2Zmc2V0IjowLCJkZWZlbnNpdmVfcGl0Y2hfb2Zmc2V0IjowLCJsZWZ0X29mZnNldCI6MH0sImJ1aWxkZXJfdHlwZSI6IkN1c3RvbSIsIlNoYXJlZCI6eyJ5YXdfbW9kaWZpZXJfb2Zmc2V0IjowLCJkZWxheSI6MiwibWF4X2RlbGF5IjoyLCJkZWZlbnNpdmVfbGVmdF9vZmZzZXQiOjAsImRlZmVuc2l2ZV95YXdfc3BlZWQiOjEsInlhd19tb2RpZmllcl9tb2RlIjoiQ2VudGVyIiwiZGVmZW5zaXZlX3BpdGNoIjoiQ3VzdG9tIiwiZGVmZW5zaXZlX3lhd19kZWxheSI6MiwieWF3X21vZGlmaWVyIjpmYWxzZSwiZGVmZW5zaXZlX3BpdGNoX21heCI6MCwiZGVmZW5zaXZlX3N3aXRjaCI6ZmFsc2UsImJvZHlfeWF3IjpmYWxzZSwieWF3X2FkZCI6ZmFsc2UsIm1pbl9kZWxheSI6MiwiZGVmZW5zaXZlX3lhd19tYXgiOjAsImJvZHlfeWF3X29mZnNldCI6MCwieWF3X21vZGlmaWVyX3dheXMiOjMsInJpZ2h0X29mZnNldCI6MCwiZGVmZW5zaXZlX3lhdyI6IkN1c3RvbSIsImludmVydF9jaGFuY2UiOjEwMCwiZGVmZW5zaXZlX3lhd19vZmZzZXQiOjAsImZvcmNlX2RlZmVuc2l2ZSI6ZmFsc2UsImRlZmVuc2l2ZV95YXdfbWluIjowLCJkZWZlbnNpdmVfcGl0Y2hfbWluIjowLCJsZWZ0X29mZnNldCI6MCwiYm9keV95YXdfbW9kZSI6IlN0YXRpYyIsImRlZmVuc2l2ZV8zNjBfb2Zmc2V0IjoxODAsImRlZmVuc2l2ZV9kZWxheSI6MiwiZGVmZW5zaXZlX3JpZ2h0X29mZnNldCI6MCwiZGVmZW5zaXZlX3BpdGNoX29mZnNldCI6MCwieWF3X29mZnNldCI6MH0sIkNyb3VjaGluZyI6eyJib2R5X3lhd19vZmZzZXQiOjAsInlhd19tb2RpZmllcl9vZmZzZXQiOjAsInlhd19tb2RpZmllcl9tb2RlIjoiQ2VudGVyIiwibWF4X2RlbGF5Ijo0LCJ5YXdfb2Zmc2V0IjowLCJkZWZlbnNpdmVfeWF3X3NwZWVkIjoxLCJ5YXdfbW9kaWZpZXIiOmZhbHNlLCJkZWZlbnNpdmVfcGl0Y2giOiJDdXN0b20iLCJkZWZlbnNpdmVfeWF3X2RlbGF5IjoyLCJhbGxvd19sZWdhY3kiOnRydWUsImRlZmVuc2l2ZV9waXRjaF9tYXgiOjAsImRlbGF5IjozLCJib2R5X3lhdyI6dHJ1ZSwieWF3X2FkZCI6dHJ1ZSwibWluX2RlbGF5IjozLCJkZWZlbnNpdmVfbGVmdF9vZmZzZXQiOjQzLCJ5YXdfbW9kaWZpZXJfd2F5cyI6MywiZGVmZW5zaXZlX3N3aXRjaCI6ZmFsc2UsInJpZ2h0X29mZnNldCI6NDMsImRlZmVuc2l2ZV95YXciOiJTd2l0Y2giLCJpbnZlcnRfY2hhbmNlIjoxMDAsImRlZmVuc2l2ZV95YXdfb2Zmc2V0IjowLCJmb3JjZV9kZWZlbnNpdmUiOmZhbHNlLCJkZWZlbnNpdmVfeWF3X21pbiI6MCwiZGVmZW5zaXZlX3BpdGNoX21pbiI6MCwiZGVmZW5zaXZlX2RlbGF5IjoxLCJib2R5X3lhd19tb2RlIjoiUmFuZG9taXplIEppdHRlciIsImRlZmVuc2l2ZV8zNjBfb2Zmc2V0IjoyMTcsImRlZmVuc2l2ZV95YXdfbWF4IjowLCJkZWZlbnNpdmVfcmlnaHRfb2Zmc2V0Ijo0MywiZGVmZW5zaXZlX3BpdGNoX29mZnNldCI6LTQ2LCJsZWZ0X29mZnNldCI6LTIxfSwiUnVubmluZyI6eyJib2R5X3lhd19vZmZzZXQiOjAsInlhd19tb2RpZmllcl9vZmZzZXQiOi0yMSwieWF3X21vZGlmaWVyX21vZGUiOiJDZW50ZXIgdjIiLCJtYXhfZGVsYXkiOjIsInlhd19vZmZzZXQiOjAsImRlZmVuc2l2ZV95YXdfc3BlZWQiOjEsInlhd19tb2RpZmllciI6dHJ1ZSwiZGVmZW5zaXZlX3BpdGNoIjoiQ3VzdG9tIiwiZGVmZW5zaXZlX3lhd19kZWxheSI6MiwiYWxsb3dfbGVnYWN5Ijp0cnVlLCJkZWZlbnNpdmVfcGl0Y2hfbWF4IjowLCJkZWxheSI6NCwiYm9keV95YXciOnRydWUsInlhd19hZGQiOnRydWUsIm1pbl9kZWxheSI6MiwiZGVmZW5zaXZlX2xlZnRfb2Zmc2V0IjoyMywieWF3X21vZGlmaWVyX3dheXMiOjMsImRlZmVuc2l2ZV9zd2l0Y2giOmZhbHNlLCJyaWdodF9vZmZzZXQiOjIzLCJkZWZlbnNpdmVfeWF3IjoiQ3VzdG9tIiwiaW52ZXJ0X2NoYW5jZSI6MTAwLCJkZWZlbnNpdmVfeWF3X29mZnNldCI6MCwiZm9yY2VfZGVmZW5zaXZlIjpmYWxzZSwiZGVmZW5zaXZlX3lhd19taW4iOjAsImRlZmVuc2l2ZV9waXRjaF9taW4iOjAsImRlZmVuc2l2ZV9kZWxheSI6MiwiYm9keV95YXdfbW9kZSI6IkppdHRlciIsImRlZmVuc2l2ZV8zNjBfb2Zmc2V0IjoxODAsImRlZmVuc2l2ZV95YXdfbWF4IjowLCJkZWZlbnNpdmVfcmlnaHRfb2Zmc2V0IjoyMywiZGVmZW5zaXZlX3BpdGNoX29mZnNldCI6MCwibGVmdF9vZmZzZXQiOi0zNH0sImZsaWNrX3lhdyI6IlN0YXRpYyIsIldhbGtpbmciOnsiYm9keV95YXdfb2Zmc2V0IjowLCJ5YXdfbW9kaWZpZXJfb2Zmc2V0IjotNTYsInlhd19tb2RpZmllcl9tb2RlIjoiQ2VudGVyIHYyIiwibWF4X2RlbGF5IjoyLCJ5YXdfb2Zmc2V0IjowLCJkZWZlbnNpdmVfeWF3X3NwZWVkIjoxLCJ5YXdfbW9kaWZpZXIiOnRydWUsImRlZmVuc2l2ZV9waXRjaCI6IlNwaW4iLCJkZWZlbnNpdmVfeWF3X2RlbGF5IjoyLCJhbGxvd19sZWdhY3kiOnRydWUsImRlZmVuc2l2ZV9waXRjaF9tYXgiOi0yNCwiZGVsYXkiOjMsImJvZHlfeWF3Ijp0cnVlLCJ5YXdfYWRkIjpmYWxzZSwibWluX2RlbGF5IjoyLCJkZWZlbnNpdmVfbGVmdF9vZmZzZXQiOjAsInlhd19tb2RpZmllcl93YXlzIjozLCJkZWZlbnNpdmVfc3dpdGNoIjpmYWxzZSwicmlnaHRfb2Zmc2V0IjowLCJkZWZlbnNpdmVfeWF3IjoiU3dpdGNoIiwiaW52ZXJ0X2NoYW5jZSI6MTAwLCJkZWZlbnNpdmVfeWF3X29mZnNldCI6MCwiZm9yY2VfZGVmZW5zaXZlIjpmYWxzZSwiZGVmZW5zaXZlX3lhd19taW4iOjAsImRlZmVuc2l2ZV9waXRjaF9taW4iOjAsImRlZmVuc2l2ZV9kZWxheSI6MjQsImJvZHlfeWF3X21vZGUiOiJKaXR0ZXIiLCJkZWZlbnNpdmVfMzYwX29mZnNldCI6MTgwLCJkZWZlbnNpdmVfeWF3X21heCI6MCwiZGVmZW5zaXZlX3JpZ2h0X29mZnNldCI6MCwiZGVmZW5zaXZlX3BpdGNoX29mZnNldCI6MCwibGVmdF9vZmZzZXQiOjB9LCJTdGFuZGluZyI6eyJib2R5X3lhd19vZmZzZXQiOjAsInlhd19tb2RpZmllcl9vZmZzZXQiOi0yMSwieWF3X21vZGlmaWVyX21vZGUiOiJDZW50ZXIiLCJtYXhfZGVsYXkiOjUsInlhd19vZmZzZXQiOjAsImRlZmVuc2l2ZV95YXdfc3BlZWQiOjEsInlhd19tb2RpZmllciI6dHJ1ZSwiZGVmZW5zaXZlX3BpdGNoIjoiQ3VzdG9tIiwiZGVmZW5zaXZlX3lhd19kZWxheSI6MiwiYWxsb3dfbGVnYWN5Ijp0cnVlLCJkZWZlbnNpdmVfcGl0Y2hfbWF4IjowLCJkZWxheSI6NCwiYm9keV95YXciOnRydWUsInlhd19hZGQiOnRydWUsIm1pbl9kZWxheSI6NCwiZGVmZW5zaXZlX2xlZnRfb2Zmc2V0IjoyMywieWF3X21vZGlmaWVyX3dheXMiOjMsImRlZmVuc2l2ZV9zd2l0Y2giOmZhbHNlLCJyaWdodF9vZmZzZXQiOjIzLCJkZWZlbnNpdmVfeWF3IjoiU3dpdGNoIiwiaW52ZXJ0X2NoYW5jZSI6MTAwLCJkZWZlbnNpdmVfeWF3X29mZnNldCI6MCwiZm9yY2VfZGVmZW5zaXZlIjpmYWxzZSwiZGVmZW5zaXZlX3lhd19taW4iOjAsImRlZmVuc2l2ZV9waXRjaF9taW4iOjAsImRlZmVuc2l2ZV9kZWxheSI6MTcsImJvZHlfeWF3X21vZGUiOiJSYW5kb21pemUgSml0dGVyIiwiZGVmZW5zaXZlXzM2MF9vZmZzZXQiOjE4MSwiZGVmZW5zaXZlX3lhd19tYXgiOjAsImRlZmVuc2l2ZV9yaWdodF9vZmZzZXQiOjIzLCJkZWZlbnNpdmVfcGl0Y2hfb2Zmc2V0IjowLCJsZWZ0X29mZnNldCI6LTMyfX0_"
-            if presetData and presetData ~= "" then
-                local data = antiaim.configs.decompile(presetData)
-                if data then
-                    local importedCount = 0
-                    for i = 1, #antiaim.states_names do
-                        local stateName = antiaim.states_names[i]
-                        if data[stateName] then
-                            antiaim.configs.import(stateName, data[stateName])
-                            importedCount = importedCount + 1
-                        end
-                    end
-                    
-                    if importedCount > 0 then
-                        if originalBuilderType and menu.elements["antiaim"]["builder_type"] then
-                            menu.elements["antiaim"]["builder_type"] = originalBuilderType
-                        end
-                        
-                        client.exec("play ui\\beepclear")
-                        hasAppliedSnappyPreset = true
-                        lastAppliedPreset = currentPreset
-                    end
-                end
-            end
+        presetData = snappy
+    end
+
+    if not presetData or presetData == "" then
+        return
+    end
+
+    local data = antiaim.configs.decompile(presetData)
+    if not data then
+        return
+    end
+
+    local importedCount = 0
+    for i = 1, #antiaim.states_names do
+        local stateName = antiaim.states_names[i]
+        if data[stateName] then
+            antiaim.configs.import(stateName, data[stateName])
+            importedCount = importedCount + 1
         end
+    end
+
+    if importedCount > 0 then
+        client.exec("play ui\\beepclear")
+        print_raw("applied preset")
+        lastPreset = currentPreset
     end
 end
+
+
 
     antiaim.setup = function(new_config)
         new_config.antiaim_enabled = true
@@ -5898,7 +5893,7 @@ do
 end
 
 local indicators = {}
-do    
+do   
 
     local window_watermark_drag = drag.new("window_watermark_drag", 10, 40)
 	pui_drags[#pui_drags + 1] = window_watermark_drag
@@ -6097,8 +6092,18 @@ windows.spec_handle = function()
 
     local spectators = get_spectator_names()
     if #spectators == 0 then
-        spectators = { "Nobody" }
+        if ui.is_menu_open() then
+		spectators = {
+			""
+		}
+            else
+		return
     end
+	end
+
+	for i = 1, #spectators do
+		spectators[i] = string.lower(spectators[i])
+	end
 
     local padding_x, padding_y = 20, 8
     local padding_xb, padding_yb = 22, 10
@@ -6110,15 +6115,9 @@ windows.spec_handle = function()
 
     local title_w, title_h = renderer.measure_text("db", title)
 
-    local max_name_w = 0
-    for i = 1, #spectators do
-        local w = renderer.measure_text(nil, spectators[i])
-        max_name_w = math.max(max_name_w, w)
-    end
-
-    local content_w = math.max(title_w, max_name_w)
-    local box_w = content_w + padding_x * 2
-    local box_wb = content_w + padding_xb * 2
+    -- hardcoded widths
+    local box_w  = 160
+    local box_wb = 164
 
     local box_h =
         padding_y +
@@ -6126,6 +6125,7 @@ windows.spec_handle = function()
         title_gap +
         (#spectators * line_height) +
         padding_y
+
     local box_hb =
         padding_yb +
         title_h +
@@ -6138,51 +6138,52 @@ windows.spec_handle = function()
     renderer.gradient(x, y, box_w, title_gap * 1.5, 40, 40, 40, 240, 10, 10, 10, 240, false)
 
     renderer.gradient(
-        x+box_w/2,
-        y + title_gap* 1.7,
-        box_w/2,
+        x + box_w / 2,
+        y + title_gap * 1.7,
+        box_w / 2,
         1,
         r, g, b, a,
         0, 0, 0, 220,
         true
     )
+
     renderer.gradient(
-        x+box_w*0.01,
-        y + title_gap* 1.7,
-        box_w/2,
+        x + box_w * 0.01,
+        y + title_gap * 1.7,
+        box_w / 2,
         1,
         0, 0, 0, 240,
         r, g, b, a,
         true
     )
 
-
     renderer.text(
         x + box_w / 2 - title_w / 2,
         y + padding_y - 2,
-        255, 255, 255, 255,
+        220, 220, 220, 240,
         "db",
-        0,
+        100,
         title
     )
 
     local start_y = y + padding_y + title_h + title_gap
 
-    for i = 1, #spectators do
-        local name = spectators[i]
-        local name_w = renderer.measure_text(nil, name)
+    local text_left = x + 7
 
-        renderer.text(
-            x + box_w / 2 - name_w / 2,
-            start_y + (i - 1) * line_height,
-            255, 255, 255, 255,
-            "",
-            0,
-            name
-        )
-    end
+for i = 1, #spectators do
+    local name = spectators[i]
+    renderer.text(
+        text_left,
+        start_y + (i - 1) * line_height,
+        220, 220, 220, 240,
+        "d",
+        156,
+        name
+    )
+end
 
 end
+
 
 
 
@@ -6312,10 +6313,6 @@ windows.keybinds:create(
 
 windows.key_handle = function()
     local master = menu.elements["visuals"]["widgets"]
-	local lp = entity.get_local_player()
-    if not lp or not entity.is_alive(lp) then
-        return
-    end
     if not master["Keybinds"] then
         return
     end
@@ -6323,7 +6320,7 @@ windows.key_handle = function()
     local r,g,b,a = menu.refs["main"]["accent_color"]:get()
 
     local sc = vector(client.screen_size())
-    local x, y = window_key_drag:drag(90, 60, 10, 40)
+    local x, y = window_key_drag:drag(160, 60, 10, 40)
 
     local line_h = 14
     local title_gap = 10
@@ -6338,7 +6335,7 @@ windows.key_handle = function()
         item.alpha = anim.lerp(item.alpha, active and 255 or 0)
 
         if item.alpha > 1 then
-            local text = item.name .. (active and " [on]" or " [off]")
+            local text = item.name 
             local tw = renderer.measure_text("", text)
 
             max_w = math.max(max_w, tw)
@@ -6346,7 +6343,7 @@ windows.key_handle = function()
         end
     end
 
-    local box_w = max_w + padding_x * 2
+    local box_w = 160
     local box_h = total_h + padding_y * 2
 
     windows.keybinds.anim_w = anim.lerp(windows.keybinds.anim_w, box_w)
@@ -6356,7 +6353,7 @@ windows.key_handle = function()
     local draw_h = windows.keybinds.anim_h
 
 
-    local box_x = x - draw_w / 2 + 45
+    local box_x = x - draw_w / 2 + 78
     local box_y = y - line_h - padding_y - 4 + 40
 
     renderer.rectangle(
@@ -6381,9 +6378,9 @@ windows.key_handle = function()
     local title_w = renderer.measure_text("b", title)
 
     renderer.text(
-        x - title_w / 2 + 45,
+        x - title_w / 2 + 25 + 53,
         y - line_h*1.4 + 40,
-        255, 255, 255, 255,
+        220, 220, 220, 240,
         "b",
         0,
         title
@@ -6416,26 +6413,42 @@ renderer.gradient(
 )
 
 
-    y = y + title_gap
+y = y + title_gap
 
-    for _, item in ipairs(windows.keybinds.items) do
-        if item.alpha > 1 then
-            local active = item.get()
-            local text = item.name .. (active and " [on]" or " [off]")
-            local tw = renderer.measure_text("", text)
+for _, item in ipairs(windows.keybinds.items) do
+    if item.alpha > 1 then
+        local active = item.get()
+        local text = string.lower(item.name)
+        local active_text = (active and "[enabled]" or "")
+        local tw = renderer.measure_text("", text)
+		
+		-- Assuming x is updated correctly on drag as absolute position already
+local base_x = x + 3
 
-            renderer.text(
-                x - tw / 2 + 45,
-                y+ 40,
-                255, 255, 255, item.alpha,
-                "",
-                0,
-                text
-            )
+renderer.text(
+    base_x,
+    y + 40,
+    220, 220, 220, item.alpha,
+    "",
+    0,
+    text
+)
 
-            y = y + line_h * (item.alpha / 255)
-        end
+renderer.text(
+    base_x + 104, -- 138 - 34 = 104, adjusted relative offset for the active text
+    y+ 40,
+    220, 220, 220, item.alpha,
+    "",
+    0,
+    active_text
+)
+
+
+        -- Move y down for the next item
+        y = y + line_h * (item.alpha / 255)
     end
+end
+
 end
 
 local vel_history = {}
@@ -8087,6 +8100,68 @@ logs.aim_hit = function(shot, e)
         events.aim_miss(logs.aim_miss, enabled)
     end, true)
 
+    indicators.shoppytag = {}
+        do
+            local shoppytag = indicators.shoppytag
+
+            shoppytag.handle = function()
+                local master = menu.elements["visuals"]["shoppy"]
+
+                if not master then return end
+
+                local user_text = menu.refs["visuals"]["text"]:get()
+
+                if user_text == "" then user_text = "cabbtral.fun" end
+
+                local color = menu.elements["visuals"]["color"]:to_hex()
+
+                local textunformat = "\aFFFFFFFFshoppy.gg/\r\a" .. color .. "@" .. user_text .. "\r"
+
+                local text = pui.format(textunformat)
+
+                local sc = vector(client.screen_size())
+
+                local text_w, text_h = renderer.measure_text("", text)
+
+                local x = sc.x - text_w
+                local y = 2
+
+                renderer.text(x,y,255,255,255,255, "", 0, text)
+            end
+
+            local master = menu.elements["visuals"]["shoppy"]
+
+            client.set_event_callback("paint_ui", function()
+                shoppytag.handle()
+            end)
+
+            menu.checkbox(groups.antiaim)("Shoppy tag")("visuals", "shoppy", ts.is_indicators)
+            menu.textbox(groups.antiaim)("\ntext")("visuals", "text", function() return ts.is_indicators() and menu.elements["visuals"]["shoppy"] end)
+            menu.color_picker(groups.antiaim)("\ncolor", color(255))("visuals", "color", function() return ts.is_indicators() and menu.elements["visuals"]["shoppy"] end)
+        end
+
+        indicators.cabbit = {}
+        do
+            local cabbit = indicators.cabbit
+
+            cabbit.handle = function()
+
+            local open = ui.is_menu_open()
+
+            local x, y = ui.menu_position()
+
+            local menu_w, menu_h = ui.menu_size()
+
+            if not open then return end
+                if cabbit_texture_id then
+                    renderer.texture(cabbit_texture_id, x, y- 200, 250, 249, 255, 255, 255, 255, "f")
+                end
+            end
+
+            client.set_event_callback("paint_ui", function() cabbit.handle() end)
+        end
+
+
             --[[indicators.slowed_down = {}
         do
             local slowed = indicators.slowed_down
@@ -8702,36 +8777,48 @@ end
         local clantag = miscellaneous.clantag
 
         clantag.tag = {
-            "               ",
-            "#              ",
-            "#C             ",
-            "#CA            ",
-            "#CAB         ",
-            "#CABB        ",
-            "#CABBT         ",
-            "#CABBTR        ",
-            "#CABBTRA       ",
-            "#CABBTRAL      ",
-            "#CABBTRAL      ",
-            "#CABBTRAL      ",
-            "#CABBTRAL      ",
-            "#CABBTRAL      ",
-            "#CABBTRAL      ",
-            "#CABBTRAL      ",
-            "#CABBTRAL      ",
-            "#CABBTRAL      ",
-            "#CABBTRA       ",
-            "#CABBTR        ",
-            "#CABBT         ",
-            "#CABB        ",
-            "#CAB         ",
-            "#CA            ",
-            "#C             ",
-            "#              ",
-            "               ",
-            "               ",
-            "               ",
-            "               ",
+			"",
+            "",
+			"c",
+			"ca",
+			"cab",
+			"cabb",
+			"cabbt",
+			"cabbtr",
+			"cabbtra",
+			"cabbtral",
+			"cabbtral $",
+			"cabbtral $$",
+			"cabbtral $$$",
+			"cabbtral $$$",
+			"cabbtral $$$",
+			"cabbtral $$$",
+			"cabbtral $$$",
+			"cabbtral $$",
+			"cabbtral $",
+			"cabbtral",
+			"cabbtra",
+			"cabbtr",
+			"cabbt",
+			"cabb",
+			"cab",
+			"ca",
+			"c",
+			"",
+			"$$$",
+			"$$$",
+			"   ",
+			"   ",
+			"$$$",
+			"$$$",
+			"   ",
+			"   ",
+			"$$$",
+			"$$$",
+			"   ",
+			"  ",
+			" ",
+			"",
         }
 
         clantag.cache = nil
@@ -8784,10 +8871,12 @@ end
                 {1, "𝕃𝔼𝔾𝔼ℕ𝔻𝕊 ℕ𝔼𝕍𝔼ℝ 𝔻𝕀𝔼 ♛ (◣_◢) ♛"},
                 {1, "hey guys", 2, "i repent to cabbtral.lua"},
                 {3, "hi", 4, "buy cabbtral", 5, "but its private"},
+                {1, "𝐈 𝐆𝐈𝐕𝐄 𝐋𝐈𝐓𝐓𝐋𝐄 𝐊𝐈𝐃𝐒 𝐅𝐄𝐍𝐓", 2, "Ｉ ＡＭ ＦＥＮＴＤＥＡＬＥＲ (◣_◢)"},
+                {1, "nice try dude", 2, "i am very wholesomehvhvhvhvhvhvhvh"}
             },
             death = {
                 {1, "its ok", 2, "all legends die sometimes"},
-                {3, "F[F[F[F[F[F[", 4, "lucky bot"},
+                {3, "F[F[F[F[F[F[", 4, "u luckbot hvh perchance?"},
                 {3, "bro u sooooooo gooooooooddddd", 5, "no wait that was lucky"},
                 {1, "chill g", 2, "you just got lucky"},
                 {1, "what a great day", 3, "did dad bring vodka already?"},
