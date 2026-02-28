@@ -935,175 +935,6 @@ end
 }
 -- #endregion
 
--- #region : drag
-local pui_drags = {}
-
-local drag = {
-    new = function(name, base_x, base_y)
-        return (function()
-            local a = {}
-            local magnit = {}
-
-            local drag_type__ = {
-                b = 0,
-                d = 0,
-                e = 0,
-                f = 0,
-                g = 0,
-                h = false,
-                i = nil,
-                j = 0,
-                k = 0,
-                l = {},
-                m = nil,
-                n = false,
-                o = nil,
-                uii = false,
-            }
-
-local p = {
-    __index = {
-        drag = function(self, ...)
-            local q, r = self:get()
-            local s, t = a.drag(self, q, r, ...)
-            if q ~= s or r ~= t then
-                self:set(s, t)
-            end
-            return s, t
-        end,
-
-        set = function(self, q, r)
-            local j, k = client.screen_size()
-            ui.set(self.x_reference, q / j * self.res)
-            ui.set(self.y_reference, r / k * self.res)
-        end,
-
-        get = function(self, x333, y333)
-            local j, k = client.screen_size()
-            return
-                ui.get(self.x_reference) / self.res * j + (x333 or 0),
-                ui.get(self.y_reference) / self.res * k + (y333 or 0)
-        end,
-
-        pui_export = function(self)
-            local x, y = self:get()
-            return {
-                name = self.name,
-                x = x,
-                y = y
-            }
-        end,
-
-        pui_import = function(self, data)
-            if not data then return end
-            self:set(data.x, data.y)
-        end
-    }
-}
-
-            function a.new(u, v, w, x)
-                x = x or 10000
-                local j, k = client.screen_size()
-                local y = ui.new_slider(
-                    "aa",
-                    "anti-aimbot angles",
-                    "cabbtral::x:" .. u,
-                    0,
-                    x,
-                    v / j * x
-                )
-                local z = ui.new_slider(
-                    "aa",
-                    "anti-aimbot angles",
-                    "cabbtral::y:" .. u,
-                    0,
-                    x,
-                    w / k * x
-                )
-                ui.set_visible(y, false)
-                ui.set_visible(z, false)
-                return setmetatable({
-                    name = u,
-                    x_reference = y,
-                    y_reference = z,
-                    res = x,
-                }, p)
-            end
-
-            function a.drag(self, x_widget, y_widget, w_w, h_w, alp)
-                if globals.framecount() ~= drag_type__.b then
-                    drag_type__.uii = ui.is_menu_open()
-                    drag_type__.f, drag_type__.g = drag_type__.d, drag_type__.e
-                    drag_type__.d, drag_type__.e = ui.mouse_position()
-                    drag_type__.i = drag_type__.h
-                    drag_type__.h = client.key_state(0x01) == true
-                    drag_type__.m = drag_type__.l
-                    drag_type__.l = {}
-                    drag_type__.o = drag_type__.n
-                    magnit[self.name] = { x = false, y = false }
-                    drag_type__.j, drag_type__.k = client.screen_size()
-                end
-
-                local held = drag_type__.h
-                    and drag_type__.f > x_widget
-                    and drag_type__.g > y_widget
-                    and drag_type__.f < x_widget + w_w
-                    and drag_type__.g < y_widget + h_w
-
-                local held_a = rendere:new_anim(
-                    "drag.alpha.held." .. self.name,
-                    held and 1 or 0,
-                    8
-                )
-
-                if drag_type__.uii and drag_type__.i ~= nil then
-                    rendere:rect(
-                        x_widget,
-                        y_widget,
-                        w_w,
-                        h_w,
-                        { 100, 100, 100, 40 },
-                        6
-                    )
-
-                    if held then
-                        drag_type__.n = true
-                        x_widget = x_widget + drag_type__.d - drag_type__.f
-                        y_widget = y_widget + drag_type__.e - drag_type__.g
-
-                        x_widget =
-                            rendere:clamp(drag_type__.j - w_w, 0, x_widget)
-                        y_widget =
-                            rendere:clamp(drag_type__.k - h_w, 0, y_widget)
-                    end
-
-                    if held_a > 0.1 then
-                        local ax = rendere:new_anim(
-                            "drag.alpha.x." .. self.name,
-                            held_a * (80 + (magnit[self.name].x and 90 or 0)),
-                            8
-                        )
-                        local ay = rendere:new_anim(
-                            "drag.alpha.y." .. self.name,
-                            held_a * (80 + (magnit[self.name].y and 90 or 0)),
-                            8
-                        )
-                        local scr_w, scr_h = client.screen_size()
-
-                        local guide_y = scr_h - 40 - (h_w / 2)
-                    end
-                end
-
-                table.insert(drag_type__.l, { x_widget, y_widget, w_w, h_w })
-                return x_widget, y_widget, w_w, h_w
-            end
-
-            return a
-        end)().new(name, base_x, base_y)
-    end,
-}
--- #endregion
-
 -- #region : Events
 local events
 do
@@ -5103,6 +4934,169 @@ do
 end
 --
 
+--region drag
+local drag = {
+    new = function(name, base_x, base_y)
+        return (function()
+            local a = {}
+            local magnit = {}
+
+            local drag_type__ = {
+                last_frame = 0,
+                last_mouse_x = 0,
+                last_mouse_y = 0,
+                mouse_dx = 0,
+                mouse_dy = 0,
+                mouse_held = false,
+                last_held = nil,
+                prev_rects = {},
+                held_rects = nil,
+                dragging = false,
+                menu_open = false,
+                screen_w = 0,
+                screen_h = 0,
+            }
+
+            local p = {
+                __index = {
+                    drag = function(self, ...)
+                        local x, y = self:get()
+                        local nx, ny = a.drag(self, x, y, ...)
+                        if x ~= nx or y ~= ny then
+                            self:set(nx, ny)
+                        end
+                        return nx, ny
+                    end,
+
+                    set = function(self, x, y)
+                        local w, h = client.screen_size()
+                        local vx, vy = x / w * self.res, y / h * self.res
+                        menu.elements[self.x_tab][self.x_key] = vx
+                        menu.elements[self.y_tab][self.y_key] = vy
+                        
+                        if menu.refs[self.x_tab] and menu.refs[self.x_tab][self.x_key] and menu.refs[self.x_tab][self.x_key].override then
+                            menu.refs[self.x_tab][self.x_key]:override(vx)
+                        elseif menu.refs[self.x_tab] and menu.refs[self.x_tab][self.x_key] and menu.refs[self.x_tab][self.x_key].set then
+                            menu.refs[self.x_tab][self.x_key]:set(vx)
+                        end
+                        if menu.refs[self.y_tab] and menu.refs[self.y_tab][self.y_key] and menu.refs[self.y_tab][self.y_key].override then
+                            menu.refs[self.y_tab][self.y_key]:override(vy)
+                        elseif menu.refs[self.y_tab] and menu.refs[self.y_tab][self.y_key] and menu.refs[self.y_tab][self.y_key].set then
+                            menu.refs[self.y_tab][self.y_key]:set(vy)
+                        end
+
+                        if db and db.write then
+                            db.write(self.x_key, vx)
+                            db.write(self.y_key, vy)
+                        end
+                    end,
+
+                    get = function(self, ox, oy)
+                        local w, h = client.screen_size()
+                        return
+                            menu.elements[self.x_tab][self.x_key] / self.res * w + (ox or 0),
+                            menu.elements[self.y_tab][self.y_key] / self.res * h + (oy or 0)
+                    end,
+
+                    pui_export = function(self)
+                        local x, y = self:get()
+                        return { name = self.name, x = x, y = y }
+                    end,
+
+                    pui_import = function(self, data)
+                        if data then
+                            self:set(data.x, data.y)
+                        end
+                    end,
+                }
+            }
+
+            function a.new(u, start_x, start_y, res)
+                res = res or 10000
+                local screen_w, screen_h = client.screen_size()
+                local tab = "visuals"
+                local x_key = "drag::x:" .. u
+                local y_key = "drag::y:" .. u
+
+                if db and db.read then
+                    local sx = db.read(x_key)
+                    local sy = db.read(y_key)
+                    if sx then start_x = sx / res * screen_w end
+                    if sy then start_y = sy / res * screen_h end
+                end
+
+                if not menu.refs[tab] or not menu.refs[tab][x_key] then
+                    menu.slider(groups.other)(
+                        x_key, 0, res, start_x / screen_w * res, "%", 1
+                    )(tab, x_key, function() return false end)
+                end
+
+                if not menu.refs[tab] or not menu.refs[tab][y_key] then
+                    menu.slider(groups.other)(
+                        y_key, 0, res, start_y / screen_h * res, "%", 1
+                    )(tab, y_key, function() return false end)
+                end
+
+                return setmetatable({
+                    name = u,
+                    x_tab = tab,
+                    y_tab = tab,
+                    x_key = x_key,
+                    y_key = y_key,
+                    res = res,
+                }, p)
+            end
+
+            function a.drag(self, x, y, w_rect, h_rect, alp)
+                if globals.framecount() ~= drag_type__.last_frame then
+                    drag_type__.menu_open = ui.is_menu_open()
+                    drag_type__.mouse_dx, drag_type__.mouse_dy = drag_type__.last_mouse_x, drag_type__.last_mouse_y
+                    drag_type__.last_mouse_x, drag_type__.last_mouse_y = ui.mouse_position()
+                    drag_type__.last_held = drag_type__.mouse_held
+                    drag_type__.mouse_held = client.key_state(0x01) == true
+                    drag_type__.prev_rects = drag_type__.held_rects
+                    drag_type__.held_rects = {}
+                    drag_type__.dragging = false
+                    magnit[self.name] = { x = false, y = false }
+                    drag_type__.screen_w, drag_type__.screen_h = client.screen_size()
+                    drag_type__.last_frame = globals.framecount()
+                end
+
+                local held = drag_type__.mouse_held
+                    and drag_type__.mouse_dx > x
+                    and drag_type__.mouse_dy > y
+                    and drag_type__.mouse_dx < x + w_rect
+                    and drag_type__.mouse_dy < y + h_rect
+
+                local held_a = rendere:new_anim(
+                    "drag.alpha.held." .. self.name,
+                    held and 1 or 0,
+                    8
+                )
+
+                if drag_type__.menu_open and drag_type__.last_held ~= nil then
+                    rendere:rect(x, y, w_rect, h_rect, {100, 100, 100, 40}, 6)
+
+                    if held then
+                        drag_type__.dragging = true
+                        x = x + drag_type__.last_mouse_x - drag_type__.mouse_dx
+                        y = y + drag_type__.last_mouse_y - drag_type__.mouse_dy
+
+                        x = rendere:clamp(drag_type__.screen_w - w_rect, 0, x)
+                        y = rendere:clamp(drag_type__.screen_h - h_rect, 0, y)
+                    end
+                end
+
+                table.insert(drag_type__.held_rects, { x, y, w_rect, h_rect })
+                return x, y, w_rect, h_rect
+            end
+
+            return a
+        end)().new(name, base_x, base_y)
+    end
+}
+--endregion
+
 local rage = {}
 do
     
@@ -5682,7 +5676,6 @@ end
         end
 
         local debug_drag = drag.new("debug_panel", 50, 350)
-		pui_drags[#pui_drags + 1] = debug_drag
 
         local function debug_panel_handle()
             local main_text = "CABBITOOLS.FUN"
@@ -5896,19 +5889,14 @@ local indicators = {}
 do   
 
     local window_watermark_drag = drag.new("window_watermark_drag", 10, 40)
-	pui_drags[#pui_drags + 1] = window_watermark_drag
 
     local window_spec_drag = drag.new("window_spec_drag", 10, 40)
-	pui_drags[#pui_drags + 1] = window_spec_drag
 
     local window_key_drag = drag.new("window_key_drag", 10, 40)
-	pui_drags[#pui_drags + 1] = window_key_drag
 	
 	local window_multi_drag = drag.new("window_multi_drag", 10, 40)
-	pui_drags[#pui_drags + 1] = window_multi_drag
 
 	local window_debug_drag = drag.new("window_debug_drag", 10, 40)
-	pui_drags[#pui_drags + 1] = window_debug_drag
 
     indicators.windows = {}
     do
@@ -6251,7 +6239,7 @@ end
 windows.keybinds:create(
     "Ping spike",
     function()
-        return refs.other.ping_spike:get_hotkey()
+        return refs.other.ping_spike:get() and refs.other.ping_spike:get_hotkey()
     end
 )
 
@@ -6671,7 +6659,6 @@ end
 
 
     local watermark_old_drag = drag.new("watermark_old", 10, 40)
-	pui_drags[#pui_drags + 1] = watermark_old_drag
 
     indicators.watermark = {}
     do
