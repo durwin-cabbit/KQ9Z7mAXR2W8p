@@ -108,7 +108,6 @@ math.randomseed(globals.realtime() * 1000)
 -- #region : lua data
 local cabbtral = {}
 do
-    cabbtral.name = "cabbtral"
     cabbtral.user = panorama_api.MyPersonaAPI.GetName() or "Admin"
     cabbtral.version = "3.0"
     cabbtral.last_update = "07.11.2025"
@@ -1692,7 +1691,7 @@ end
 
 -- #region : Database
 local db = {
-    name = ("%s::data"):format(cabbtral.name:lower()),
+    name = ("%s::data"):format(lua.name:lower()),
 }
 do
     db.data = database.read(db.name)
@@ -2224,7 +2223,7 @@ end)
 
 local ts = {}
 do
-    menu.label(groups.antiaim)(("\v%s\r \aFFAE99FF[%s]"):format(cabbtral.name, current_build))(
+    menu.label(groups.antiaim)(("\v%s\r \aFFAE99FF[%s]"):format(lua.name, current_build))(
         "main",
         "info_header"
     )
@@ -2238,12 +2237,12 @@ do
         "labelwelcome"
     )
 
-    menu.label(groups.fakelag)(("We hope you a great experience with \v%s\r"):format(cabbtral.name))(
+    menu.label(groups.fakelag)(("We hope you a great experience with \v%s\r"):format(lua.name))(
         "main",
         "labelwelcoming"
     )
 
-    menu.label(groups.fakelag)(("stay top, stay \v%s\r"):format(cabbtral.name))(
+    menu.label(groups.fakelag)(("stay top, stay \v%s\r"):format(lua.name))(
         "main",
         "labelwelcoming1"
     )
@@ -2428,7 +2427,7 @@ do
         end
 
         return ("%s::gs::%s"):format(
-            cabbtral.name:lower(),
+            lua.name:lower(),
             data:gsub("=", "_"):gsub("+", "Z1337Z")
         )
     end
@@ -2440,13 +2439,13 @@ do
             return
         end
 
-        if not data:find(("%s::gs::"):format(cabbtral.name:lower())) then
+        if not data:find(("%s::gs::"):format(lua.name:lower())) then
             print_raw("An error occured with config!")
             client.exec("play resource\\warning.wav")
             return
         end
 
-        data = data:gsub(("%s::gs::"):format(cabbtral.name:lower()), "")
+        data = data:gsub(("%s::gs::"):format(lua.name:lower()), "")
             :gsub("_", "=")
             :gsub("Z1337Z", "+")
 
@@ -4260,7 +4259,7 @@ antiaim.antibrute = {
             end
 
             return ("%s::gs::state::%s"):format(
-                cabbtral.name:lower(),
+                lua.name:lower(),
                 data:gsub("=", "_"):gsub("+", "Z1337Z")
             )
         end
@@ -4273,7 +4272,7 @@ antiaim.antibrute = {
             end
 
             if
-                not data:find(("%s::gs::state::"):format(cabbtral.name:lower()))
+                not data:find(("%s::gs::state::"):format(lua.name:lower()))
             then
                 print_raw("An error occured with config!")
                 client.exec("play resource\\warning.wav")
@@ -4281,7 +4280,7 @@ antiaim.antibrute = {
             end
 
             data = data
-                :gsub(("%s::gs::state::"):format(cabbtral.name:lower()), "")
+                :gsub(("%s::gs::state::"):format(lua.name:lower()), "")
                 :gsub("_", "=")
                 :gsub("Z1337Z", "+")
 
@@ -6602,7 +6601,7 @@ windows.debug_handle = function()
     else
         side = "L"
     end
-	local label = string.format("%s debug panel", cabbtral.name)
+	local label = string.format("%s debug panel", lua.name)
 	local yaw_text = string.format("yaw: %s", yaw_offset)
 	local pitch_text = string.format("pitch: %s", pitch_offset)
 	local yaw_jitter_text = string.format("jitter mode: %s", yaw_jitter)
@@ -7030,7 +7029,7 @@ end)
                 local r,g,b,a = menu.refs["main"]["accent_color"]:get()
 
                 local namem = string.format("%s", current_build)
-                --local namem = string.format("%s", cabbtral.name)
+                --local namem = string.format("%s", lua.name)
                 local name = string.lower(namem)
 
                 local text =fn(render.gradient_text(
@@ -7069,8 +7068,8 @@ end)
             paint = function(self, position, flags, fn)
                 local rg, gg, bg = menu.refs["visuals"]["crosshairg_color"]:get()
 
-                local namem = string.format("%s.fun", cabbtral.name)
-                --local namem = string.format("%s", cabbtral.name)
+                local namem = string.format("%s.fun", lua.name)
+                --local namem = string.format("%s", lua.name)
 
                 local text = fn(
                     render.gradient_text(
