@@ -108,7 +108,8 @@ math.randomseed(globals.realtime() * 1000)
 -- #region : lua data
 local cabbtral = {}
 do
-    cabbtral.user = panorama_api.MyPersonaAPI.GetName() or "Admin"
+    cabbtral.name = "cabbtral"
+    cabbtral.user = lua.name or "Admin"
     cabbtral.version = "3.0"
     cabbtral.last_update = "07.11.2025"
 end
@@ -1691,7 +1692,7 @@ end
 
 -- #region : Database
 local db = {
-    name = ("%s::data"):format(lua.name:lower()),
+    name = ("%s::data"):format(cabbtral.name:lower()),
 }
 do
     db.data = database.read(db.name)
@@ -2223,7 +2224,7 @@ end)
 
 local ts = {}
 do
-    menu.label(groups.antiaim)(("\v%s\r \aFFAE99FF[%s]"):format(lua.name, current_build))(
+    menu.label(groups.antiaim)(("\v%s\r \aFFAE99FF[%s]"):format(cabbtral.name, current_build))(
         "main",
         "info_header"
     )
@@ -2237,12 +2238,12 @@ do
         "labelwelcome"
     )
 
-    menu.label(groups.fakelag)(("We hope you a great experience with \v%s\r"):format(lua.name))(
+    menu.label(groups.fakelag)(("We hope you a great experience with \v%s\r"):format(cabbtral.name))(
         "main",
         "labelwelcoming"
     )
 
-    menu.label(groups.fakelag)(("stay top, stay \v%s\r"):format(lua.name))(
+    menu.label(groups.fakelag)(("stay top, stay \v%s\r"):format(cabbtral.name))(
         "main",
         "labelwelcoming1"
     )
@@ -2427,7 +2428,7 @@ do
         end
 
         return ("%s::gs::%s"):format(
-            lua.name:lower(),
+            cabbtral.name:lower(),
             data:gsub("=", "_"):gsub("+", "Z1337Z")
         )
     end
@@ -2439,13 +2440,13 @@ do
             return
         end
 
-        if not data:find(("%s::gs::"):format(lua.name:lower())) then
+        if not data:find(("%s::gs::"):format(cabbtral.name:lower())) then
             print_raw("An error occured with config!")
             client.exec("play resource\\warning.wav")
             return
         end
 
-        data = data:gsub(("%s::gs::"):format(lua.name:lower()), "")
+        data = data:gsub(("%s::gs::"):format(cabbtral.name:lower()), "")
             :gsub("_", "=")
             :gsub("Z1337Z", "+")
 
@@ -4259,7 +4260,7 @@ antiaim.antibrute = {
             end
 
             return ("%s::gs::state::%s"):format(
-                lua.name:lower(),
+                cabbtral.name:lower(),
                 data:gsub("=", "_"):gsub("+", "Z1337Z")
             )
         end
@@ -4272,7 +4273,7 @@ antiaim.antibrute = {
             end
 
             if
-                not data:find(("%s::gs::state::"):format(lua.name:lower()))
+                not data:find(("%s::gs::state::"):format(cabbtral.name:lower()))
             then
                 print_raw("An error occured with config!")
                 client.exec("play resource\\warning.wav")
@@ -4280,7 +4281,7 @@ antiaim.antibrute = {
             end
 
             data = data
-                :gsub(("%s::gs::state::"):format(lua.name:lower()), "")
+                :gsub(("%s::gs::state::"):format(cabbtral.name:lower()), "")
                 :gsub("_", "=")
                 :gsub("Z1337Z", "+")
 
@@ -6601,7 +6602,7 @@ windows.debug_handle = function()
     else
         side = "L"
     end
-	local label = string.format("%s debug panel", lua.name)
+	local label = string.format("%s debug panel", cabbtral.name)
 	local yaw_text = string.format("yaw: %s", yaw_offset)
 	local pitch_text = string.format("pitch: %s", pitch_offset)
 	local yaw_jitter_text = string.format("jitter mode: %s", yaw_jitter)
@@ -6696,6 +6697,10 @@ watermark.handle = function()
     local master = menu.elements["visuals"]["widgets"]
 
     if master["Watermark"] then return end
+
+    if menu.elements["visuals"]["shoppy"] then
+        return
+    end
 
     local text = string.format(
         "\v\a%s   cabbtral %s \\ \aFFFFFFFF %s \r",
@@ -7029,7 +7034,7 @@ end)
                 local r,g,b,a = menu.refs["main"]["accent_color"]:get()
 
                 local namem = string.format("%s", current_build)
-                --local namem = string.format("%s", lua.name)
+                --local namem = string.format("%s", cabbtral.name)
                 local name = string.lower(namem)
 
                 local text =fn(render.gradient_text(
@@ -7068,8 +7073,8 @@ end)
             paint = function(self, position, flags, fn)
                 local rg, gg, bg = menu.refs["visuals"]["crosshairg_color"]:get()
 
-                local namem = string.format("%s.fun", lua.name)
-                --local namem = string.format("%s", lua.name)
+                local namem = string.format("%s.fun", cabbtral.name)
+                --local namem = string.format("%s", cabbtral.name)
 
                 local text = fn(
                     render.gradient_text(
@@ -8957,27 +8962,33 @@ taser_warn.handle = function()
     if not visuals["Taser warning"] then return end
     if not my.valid then return end
 
-    local enemy = client.current_threat()
-    if not enemy then return end
+    local players = entity.get_players(true) -- true = enemies only
 
-    local ox, oy, oz = entity.get_origin(enemy)
-    local sx, sy = w2s(ox, oy, oz)
-    if not sx or not sy then return end
+    for i = 1, #players do
+        local enemy = players[i]
 
-    local weapon = get_weapon(enemy)
-    if not weapon then return end
-    if get_classname(weapon) ~= "CWeaponTaser" then return end
+        if entity.is_alive(enemy) then
+            local weapon = get_weapon(enemy)
+            if weapon and get_classname(weapon) == "CWeaponTaser" then
 
-    local x, y = entity.get_bounding_box(enemy)
-    if not x or not y then return end
+                local ox, oy, oz = entity.get_origin(enemy)
+                local sx, sy = w2s(ox, oy, oz)
+                if sx and sy then
 
-    renderer.circle_outline(x, y, 204, 51, 0, 255, 13, 5, 5, 13)
-    renderer.circle_outline(x, y, 204, 51, 0, 200, 15, 5, 5, 15)
-    renderer.circle_outline(x, y, 204, 51, 0, 150, 17, 5, 5, 17)
-    renderer.circle_outline(x, y, 204, 51, 0, 100, 20, 5, 5, 20)
+                    local x, y = entity.get_bounding_box(enemy)
+                    if x and y then
+                        renderer.circle_outline(x, y, 204, 51, 0, 255, 13, 5, 5, 13)
+                        renderer.circle_outline(x, y, 204, 51, 0, 200, 15, 5, 5, 15)
+                        renderer.circle_outline(x, y, 204, 51, 0, 150, 17, 5, 5, 17)
+                        renderer.circle_outline(x, y, 204, 51, 0, 100, 20, 5, 5, 20)
 
-    renderer.rectangle(x - 4, y - 13, 4, 20, 128, 0, 0, 255)
-    renderer.rectangle(x - 4, y + 10, 4, 4, 128, 0, 0, 255)
+                        renderer.rectangle(x - 4, y - 13, 4, 20, 128, 0, 0, 255)
+                        renderer.rectangle(x - 4, y + 10, 4, 4, 128, 0, 0, 255)
+                    end
+                end
+            end
+        end
+    end
 end
 
 
